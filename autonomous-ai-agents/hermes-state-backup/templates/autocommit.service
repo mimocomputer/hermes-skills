@@ -1,0 +1,12 @@
+[Unit]
+Description=Auto-commit CHANGE_ME to local git repo
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.hermes/bin/CHANGE_ME.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
