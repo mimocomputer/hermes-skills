@@ -120,3 +120,4 @@ python scripts/pdf_meta.py doc.pdf --list-attachments | --extract-attachments di
 - After metadata/attachment edits: `pdf_read.py --meta` / `pdf_meta.py --list-attachments`, and re-extract an attachment to byte-compare.
 - After encrypt: `--meta` shows `"encrypted": true` and opening without a password fails; after decrypt, text extraction matches the original.
 - For anything visual (watermarks, flattened forms), render and inspect with `vision_analyze`.
+# test marker 2026-09-05T15:38:45+00:00
