@@ -1,0 +1,55 @@
+---
+name: musicxml-engraving-accessibility
+description: Audit and fix MusicXML/MXL scores for DAISY accessibility.
+version: 1.0.0
+author: Hermes curator
+license: MIT
+platforms: [linux, macos, windows]
+metadata:
+  hermes:
+    tags: [musicxml, mxl, music-braille, daisy, accessibility, musescore, engraving]
+    category: creative
+    related_skills: [accessible-visual-verification, ocr-and-documents]
+---
+
+# MusicXML Engraving & Accessibility (DAISY Guidelines)
+
+## When to Use
+Use when checking, cleaning, fixing, or converting digital music notation scores (MusicXML / `.mxl` / MuseScore) for accessibility, especially compliance with the **DAISY Music Braille Engraving Guidelines** (for blind musicians, braille music translation, or screen reader usage). Also applies when comparing scanned/PDF master scores against digital MusicXML files to restore missing text, bilingual lyrics, or correct structural engraving flaws.
+
+## Core Principles & DAISY Guidelines Checklist
+
+The DAISY Engraving Guidelines ensure that MusicXML files are "born-accessible" and export reliably into Braille music (via Sao Mai, Braille Music Compiler, etc.) and Modified Stave Notation without silent data corruption.
+
+### 1. Structure & Layout (DAISY G1, G10, M1–M3)
+- **Score Metadata:** Ensure `<work>`, `<work-title>`, and `<creator>` (composer, lyricist, translator) are present in the XML header.
+- **Part and Staff Labels:** Every staff/part must be correctly labelled (`<part-name>`, `<part-abbreviation>`) in the score's original language (e.g. "Sopran und Alt", "Klavier" / "S. A.", "Pno.").
+- **Upbeat / Pickup Measures (Anacrusis):** An incomplete opening measure must be designated with `implicit="yes"` in `<measure>` so bar numbering matches the published print edition exactly. Never introduce fake full time signatures for pick-up bars.
+
+### 2. Lyrics & Syllabic Structure (DAISY G12)
+- **Lyric Text vs. Musical Directions:** Never place musical directions (tempo markings, dynamics, agogic instructions like `rit.`, `a tempo`, `Largamente`) into `<lyric>` tags. They must be encoded as `<direction>` with `<words>` or `<dynamics>`.
+- **Syllabification:** Every syllable must have its `<syllabic>` element set properly (`begin`, `middle`, `end`, `single`). Missing or broken syllabic tags corrupt word grouping in braille music.
+- **Hyphenation & Melismas:** Extended notes on a syllable must use `<extend />`. Notes sung on the same syllable across pitches (melismas) must be connected with `<slur>` to ensure the braille translator assigns the syllable to all constituent notes.
+- **Multiple Languages / Strophes:** Distinguish verses and languages using the `number` attribute in `<lyric number="1">` (e.g. primary language / verse 1) and `<lyric number="2">` (e.g. secondary language / translation), rather than intermingling them in arbitrary voices.
+- **Silent Voices:** Do not copy lyrics into accompanying staves or voices that do not actually sing words (e.g. homophonic choral accompaniments humming or singing neutral vowels).
+
+### 3. Directions & Dynamics Placement (DAISY G2, G3, G13)
+- **Hierarchy:** System text first, staff text second, dynamics last.
+- **Keyboard / Grand Staff:** Hairpins or dynamics between two staves should be attached to the upper staff (unless completely resting) and positioned appropriately, avoiding hidden auxiliary notes or voices that trigger false collision warnings in braille transcribers.
+
+### 4. Technical MXL/MusicXML Handling
+- `.mxl` files are standard zip archives containing `META-INF/container.xml` pointing to the root `.xml` score (typically `score.xml`).
+- To inspect or edit programmatically:
+  ```python
+  import zipfile
+  with zipfile.ZipFile("score.mxl", "r") as z:
+      z.extractall("extracted_score/")
+  # Edit extracted_score/score.xml ...
+  with zipfile.ZipFile("repacked.mxl", "w", compression=zipfile.ZIP_DEFLATED) as z:
+      z.write("extracted_score/META-INF/container.xml", "META-INF/container.xml")
+      z.write("extracted_score/score.xml", "score.xml")
+  ```
+
+## Pitfalls
+- **Automated OMR / Scans:** Scores converted via optical music recognition (Scan-to-MusicXML) frequently dump expressive tempo text (like "poco rit." or "a tempo") directly into lyrics of nearby notes. Always audit `<lyric>` text content against a whitelist of musical direction terms.
+- **Headless MuseScore execution:** MuseScore on Linux servers typically requires a dummy display plugin if run in CLI mode: prefix commands with `QT_QPA_PLATFORM=offscreen mscore ...` to avoid XCB/display aborts.
