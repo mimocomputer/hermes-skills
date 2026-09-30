@@ -21,7 +21,7 @@ Do NOT silently substitute your own visual judgment as ground truth and hand bac
 
 ## Core Procedure
 1. **Find an authoritative index first.** Before rendering anything, extract text (`pdf_read.py --text` or equivalent) and look for a table of contents, index, or printed page-number scheme. This is the ground truth to cross-check vision output against — never rely on vision alone if a text-based index exists.
-2. **Render pages to images** at a modest DPI (100 is enough for layout/title recognition; use 300 only if fine text must be read) — e.g. `pdf_page_image.py --pages 1-N --dpi 100 --out-dir /tmp/preview/`.
+2. **Render pages to images** at a modest DPI (100 is enough for layout/title recognition; use 300 only if fine text must be read) — e.g. `pdf_page_image.py --pages 1-N --dpi 100 --out-dir <preview-dir>`.
 3. **Verify BOTH ends of every extracted range with `vision_analyze`, not just the start:**
    - Confirm the *title/opening* page: title text, printed page number, matches the index.
    - Confirm the *closing* page: look for a double bar line / "Fine" / "Amen" / trailing whitespace / next title NOT yet appearing — i.e. explicit evidence the content actually ends there and doesn't spill onto the next page. A page that looks like a plausible ending can still be a false stop (e.g. mid-piece climax with rallentando but no final barline) — the "no closing evidence found" case must be re-checked on the following page before you trust the boundary.
@@ -31,6 +31,8 @@ Do NOT silently substitute your own visual judgment as ground truth and hand bac
 6. **Flag genuine ambiguity instead of guessing.** If a boundary can't be confirmed (no title, no closing cue, conflicting index), say so explicitly rather than picking the more plausible split and presenting it as fact.
 
 ## Pitfalls
+- **Inspect the final rendered artifact after corrections.** Re-render and check the exact affected pages whenever spacing, font size, page dimensions, hidden staves or linked labels change; an earlier preview does not verify the delivered version. Recheck a sole visible label when hiding duplicates, because a linked master on a hidden staff can control its remaining visible copy.
+- **Distinguish text bounds from musical glyph metrics.** Audit prose and directions per text span rather than a combined page block; nominal music-font boxes, especially stretched braces, can extend outside the page even when the ink is inside it. Inspect the rendered symbol before diagnosing clipping or dismissing a flagged bound. Treat long instructions and copyright lines as real clipping candidates, and do not call a text-bounds pass a full graphical collision test.
 - Trusting one vision_analyze call per range boundary is not enough — a model describing "this looks like an ending" from cues like rallentando/diminuendo can be wrong when the actual double bar line is on the next page. Always get explicit confirmation of a terminal marker (double bar, "Fine", blank system) or check one page further.
 - Printed/booklet page numbers frequently differ from raw PDF page indices (cover pages, license pages, back matter). State both when reporting ranges.
 - Don't ask the user "does page X look right?" — they can't check that themselves; that defeats the point of the task. Instead cite the concrete textual/graphical evidence you used (index entry, title match, terminal marker).
