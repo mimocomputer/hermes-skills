@@ -1,6 +1,9 @@
 ---
 name: vector-score-to-musicxml
 description: Use when transcribing vector PDF scores to MusicXML.
+version: 1.0.0
+author: Hermes
+license: MIT
 metadata:
   hermes:
     tags: [musicxml, pdf, music, transcription, musescore]
@@ -8,6 +11,8 @@ metadata:
 ---
 
 # Lightweight vector-score transcription
+
+## When to Use
 
 Use for licensed/user-supplied vector music PDFs when heavy OMR is unavailable. Load musicxml-engraving-accessibility and pdf skills as well. Do not assume a successful MusicXML import proves musical accuracy.
 
