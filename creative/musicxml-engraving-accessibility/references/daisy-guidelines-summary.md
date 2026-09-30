@@ -14,5 +14,5 @@ Summary of essential rules from the DAISY Music Braille project guidelines (`dai
 ### MuseScore Specifics
 - **M4 (Dynamics + Text):** Combine expressions like "sempre f" into a single dynamic text object so Braille transcribes a single token.
 - **M5 (Laissez Vibrer):** Use the articulation palette's l.v. symbol, not fake tied chords.
-- **M6 (Hairpin Positioning):** If hairpins start mid-measure, use a new voice with hidden rests rather than loose graphical dragging.
+- **M6 (Hairpin Positioning):** When a hairpin endpoint falls between note/rest onsets, use a new voice with precisely placed hidden rests rather than dragging the visual endpoint. A normal mid-measure note onset does not by itself require an auxiliary voice.
 - **M11–M12 (Cross-Voice / Cross-Staff Ties):** Use native tie bindings without artificial duplicate notes or fake slurs.

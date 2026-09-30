@@ -31,7 +31,7 @@ Use when checking, cleaning, fixing, or converting digital music notation scores
 The DAISY Engraving Guidelines guide structurally accessible master scores and reliable MusicXML export for Braille music or Modified Stave Notation conversion. Applying a checklist does not establish successful assistive-technology use; verify actual exports and disclose which conversion and screen-reader tests were performed.
 
 ### 1. Structure & Layout (DAISY G1, G17, M1–M2)
-- **Score Metadata:** Ensure `<work>`, `<work-title>`, and `<creator>` (composer, lyricist, translator) are present in the XML header.
+- **Score Metadata:** Ensure `<work>` and `<work-title>` plus source-attributed `<creator>` credits are present, including the arranger when credited. Do not invent lyricist or translator identities or roles merely to fill a metadata checklist.
 - **Part and Staff Labels:** Every staff/part must be correctly labelled (`<part-name>`, `<part-abbreviation>`) in the score's original language (e.g. "Sopran und Alt", "Klavier" / "S. A.", "Pno.").
 - **Upbeat / Pickup Measures (Anacrusis):** An incomplete opening measure must be designated with `implicit="yes"` in `<measure>` so bar numbering matches the published print edition exactly. Never introduce fake full time signatures for pick-up bars.
 
