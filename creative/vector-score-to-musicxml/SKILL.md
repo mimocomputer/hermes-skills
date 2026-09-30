@@ -2,7 +2,7 @@
 name: vector-score-to-musicxml
 description: Use when transcribing vector PDF scores to MusicXML.
 version: 1.0.0
-author: Hermes
+author: Hermes Agent
 license: MIT
 metadata:
   hermes:
