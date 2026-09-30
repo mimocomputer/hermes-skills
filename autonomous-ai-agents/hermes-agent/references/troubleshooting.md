@@ -64,6 +64,20 @@ Common gateway problems:
 - **Gateway dies on WSL2 close**: WSL2 requires `systemd=true` in `/etc/wsl.conf` for systemd services to work. Without it, gateway falls back to `nohup` (dies when session closes).
 - **Gateway crash loop**: Reset the failed state: `systemctl --user reset-failed hermes-gateway`
 
+### Gateway runs but reports `No adapter available for matrix`
+
+Check `hermes plugins show matrix-platform` before reinstalling dependencies.
+Matrix is a bundled platform plugin; a disabled plugin leaves systemd active
+but the gateway only executes cron jobs. If Matrix is configured and the
+plugin is disabled, run `hermes plugins enable matrix-platform`, restart the
+actual supervising service, then verify fresh gateway logs contain both
+`matrix connected` and initial-sync completion. E2EE cross-signing warnings
+are a separate issue; do not rotate keys or discard the crypto store just
+to silence them. `hermes plugins doctor` may require the bundled plugin's
+absolute directory rather than its display name. To obtain the composed
+runtime command, use `hermes --print-runtime-command --module MODULE`;
+`--run-module` is a launcher execution flag, not a print-runtime flag.
+
 ### Platform-specific issues
 - **Discord bot silent**: Must enable **Message Content Intent** in Bot → Privileged Gateway Intents.
 - **Slack bot only works in DMs**: Must subscribe to `message.channels` event. Without it, the bot ignores public channels.
