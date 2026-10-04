@@ -32,6 +32,10 @@ Footnotes are part of source fidelity, not optional report material: retain thei
 5. **Re-render the final artifacts.** Recheck corrected locations, both ends of the piece, lyrics, page/system breaks, form labels and long navigation instructions. Verify repeat playback by exporting MIDI and comparing the unfolded measure sequence; matching visible words alone is insufficient. Follow `accessible-visual-verification` for document-boundary and clipping checks.
 6. **Deliver usable files, not only a report.** Save both editions, source evidence, rebuild scripts and their environment in a durable project directory, not an auto-pruned cache. Send the original and adapted MSCZ files plus compressed MusicXML in chat; provide a compact bundle with PDFs, MIDI and a readable uncertainty/verification report. Recommend the native MSCZ for MuseScore editing and distinguish technical checks from unperformed NVDA/Braille-converter testing. Do not claim full DAISY conformance or editorial perfection without the corresponding tests.
 
+## Julian’s playback preference
+
+Keep playback enabled for all supplied musical content, including chord symbols, by default. Do not mute harmony playback merely to isolate the printed voices; Julian will disable unwanted playback himself or explicitly request it. To enable existing chord symbols accessibly, Julian successfully used Selection → Similar to select all chord symbols, then enabled Play in Properties. Distinguish automatic chord-symbol playback from an editorially composed rhythmic accompaniment; create such an accompaniment as a separate edition rather than claiming it is source notation.
+
 ## Core Principles & DAISY Guidelines Checklist
 
 The DAISY Engraving Guidelines guide structurally accessible master scores and reliable MusicXML export for Braille music or Modified Stave Notation conversion. Applying a checklist does not establish successful assistive-technology use; verify actual exports and disclose which conversion and screen-reader tests were performed.
