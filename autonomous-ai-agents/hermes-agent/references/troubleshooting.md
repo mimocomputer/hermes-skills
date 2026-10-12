@@ -16,6 +16,41 @@
 3. Check `.env` has the right API key
 4. **Copilot 403**: `gh auth login` tokens do NOT work for Copilot API. You must use the Copilot-specific OAuth device code flow via `hermes model` → GitHub Copilot.
 
+### Browser Use cloud: "no registered browser plugin has that name" / harness looks for local Chrome
+
+Two independent config traps (not credential problems):
+
+1. **The bundled `browser/browser_use` plugin must be ENABLED.** It ships in
+   `plugins.disabled` on some installs; while disabled its `register()` never runs,
+   so the `browser-use` cloud provider is never registered and ANY provider
+   resolution raises `ValueError: browser is configured to use 'browser-use' ...
+   no registered browser plugin has that name` (this even crashes `hermes doctor`,
+   in the Chromium check). Fix: `hermes plugins enable browser/browser_use`.
+   Takes effect on the NEXT session — a running CLI/gateway process keeps the
+   cached negative resolution until restarted.
+
+2. **`browser.backend` must be UNSET for cloud autospawn.** An explicit
+   `browser.backend: browser-use` (what the `hermes tools` "Browser Use" CLI row
+   writes) makes `is_legacy_browser_use_cloud_config()` return False, so Hermes
+   never sets `BU_AUTOSPAWN` and browser_exec falls back to a local Chrome
+   ("chrome-not-running"). Browser Use CLI mode is the DEFAULT when
+   `browser.backend` is unset, so removing it loses nothing.
+
+Working direct (BYOK, no Nous) Browser Use cloud setup:
+```bash
+hermes plugins enable browser/browser_use
+hermes config unset browser.backend      # default = Browser Use CLI mode
+hermes config set browser.cloud_provider browser-use
+# .env:  BROWSER_USE_API_KEY=<your browser-use key>
+```
+`browser-use auth login` (stored at `~/.config/browser-harness/auth.json`)
+configures the harness's OWN login, but Hermes's cloud-autospawn gate ONLY
+checks the `BROWSER_USE_API_KEY` env/.env var — copy the key from auth.json into
+`.env` (or use a key from browser-use.com). `BROWSER_USE_API_KEY` is in the
+browser subprocess passthrough list, so `.env` reaches the harness. Verify:
+a `browser_exec` run whose daemon log (`~/.config/browser-harness/tmp/bu-*.log`)
+says `connecting to wss://...cdp.browser-use.com` = real cloud browser.
+
 ### Changes not taking effect
 - **Tools/skills:** `/reset` starts a new session with updated toolset
 - **Config changes:** In gateway: `/restart`. In CLI: exit and relaunch.
@@ -77,6 +112,35 @@ to silence them. `hermes plugins doctor` may require the bundled plugin's
 absolute directory rather than its display name. To obtain the composed
 runtime command, use `hermes --print-runtime-command --module MODULE`;
 `--run-module` is a launcher execution flag, not a print-runtime flag.
+
+### Matrix deps fail to build: `python-olm` / libolm vs CMake >= 4
+
+Symptom: `hermes pm install` (or the gateway's auto-install) fails with
+`python-olm ... subprocess.CalledProcessError: Command '['cmake', '.', '-Bbuild',
+'-DBUILD_SHARED_LIBS=NO']' returned non-zero exit status 1`, so the gateway logs
+`requirements not met (pip install 'mautrix[encryption]')` and
+`No adapter available for matrix`.
+
+Cause: `mautrix[encryption]` depends on `python-olm`, whose sdist vendors libolm
+with a `cmake_minimum_required` below 3.5 — rejected by CMake >= 4 (Debian
+forky/sid ships 4.x). It is only built from source when PyPI has no wheel for
+the running Python (python-olm ships wheels up to cp312; Hermes' bundled Python
+is newer).
+
+Fix:
+```bash
+export CMAKE_POLICY_VERSION_MINIMUM=3.5   # persist in ~/.bashrc
+hermes pm install --extra matrix
+systemctl --user restart hermes-gateway
+```
+A second, separate trap: setuptools uses the interpreter's sysconfig `CXX`, and
+Hermes' bundled Python records `clang++`. On a host with only gcc/g++ the build
+dies with `No such file or directory: 'clang++'` — install clang (or export
+`CXX=g++`).
+
+Verify success in `~/.hermes/logs/gateway.log`: `Matrix: E2EE enabled`, `initial
+sync complete`, `✓ matrix connected`. The built wheel is cached by uv, so later
+syncs reuse it; a cleared cache or fresh venv needs the env var again.
 
 ### Platform-specific issues
 - **Discord bot silent**: Must enable **Message Content Intent** in Bot → Privileged Gateway Intents.
