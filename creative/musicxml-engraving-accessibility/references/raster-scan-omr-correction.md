@@ -41,7 +41,23 @@ A MuseScore `.mscz` is a zip: `META-INF/container.xml` points at the root `.mscx
 - **Lyrics:** `<Lyrics><no>N</no>` is the verse row; the printed verse number is glued into the text as `"1. Lo"` and must be split off into `<verse>`; `<syllabic>` is missing on many single-syllable words and must be re-derived from the word structure. Diff the sung text against the scan — OMR engines drop umlauts and single letters ("Ko" for "Kö", "mich" for "mäch", "Leb" for "Lob", "hor" for "hö", "fuh" for "füh", "gill" for "giß").
 - **Directions:** staff/system texts and section labels ("Tpts.", "Org.", "v. 2: CHOR und ORGEL", "SOPRANEN") are mostly absent from OMR output; take them from the scan, including which staff and which system they belong to. Read the printed tempo symbol and its dot from an enlarged crop before trusting the OMR's BPM — MusicXML `sound/@tempo` is quarter-note BPM.
 
-## 5. Order of work
+## 6. OMR engines (only when the user has supplied no OMR export)
+
+The default source of a raster note base for this user is **his own Halbestunde/MuseHub export**, not a locally run engine. Run local OMR only to get a second, independent reading: a disagreement between the two drafts localises exactly which measures need an enlarged-crop decision.
+
+**Audiveris 5.11.0, built from source (verified on Ubuntu 26.04 aarch64):** releases ship only x86_64/macOS/Windows assets, so on ARM it must be compiled. `git clone --depth 1 --branch 5.11.0 https://github.com/Audiveris/audiveris.git`, then `JAVA_HOME=<jdk-25> ./gradlew --no-daemon build` — **it declares source/target 25, so a JDK 21 fails with `invalid source release: 25`**; the build needs network only for its Maven deps (a warm `~/.gradle` cache makes it ~1 min, and it takes ~55 s otherwise). The launcher lands in `app/build/distributions/app-5.11.0.tar` → extract and run `bin/Audiveris`. `scripts/run_audiveris_omr.sh` does build-once/run-many.
+
+```bash
+TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata \
+  /home/ubuntu/.local/opt/audiveris-5.11.0/app-5.11.0/bin/Audiveris \
+  -batch -force -save -export -output <proj>/work/omr -- <proj>/source/<score>.pdf
+```
+
+- Audiveris writes an `.omr` book plus one `.mxl` per input; ~5 min per 10–11-page choral score on 2 ARM cores. Put its own log in the project (`work/omr.log`), not in the terminal, because the interesting failures are per-sheet.
+- Copy `eng.traineddata` into `~/.config/AudiverisLtd/audiveris/tessdata/` before the first run (`/usr/share/tesseract-ocr/5/tessdata/` or the tesseract-ocr/tessdata 4.1.0 raw URL).
+- **Audiveris output is a cross-check, not a base:** it explodes a four-voice choral score into one `<part>` per detected voice with junk names lifted from the page (`"I:`, `3.`, `11.`), so part structure, staff grouping and printed labels must all be rebuilt even when the pitches are usable. Sanity-check an export by counting parts and measures before believing anything else about it.
+
+## 7. Order of work
 
 1. Classify the source; record staff-line geometry and the printed scale.
 2. Validate OMR structure measure by measure (tuplets applied); repair short voices, drop spurious trailing measures.
