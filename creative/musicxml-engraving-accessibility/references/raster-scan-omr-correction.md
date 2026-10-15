@@ -66,3 +66,19 @@ TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata \
 5. Fix, re-render, repeat; then package both editions with the uncertainty report.
 
 Reading every bar out of crops before step 3 exists is the failure mode: coordinate bookkeeping eats the session and the deliverable slips. Keep the durable project tree (`source/ work/ out/ scripts/ report/`) and write each probe as a small re-runnable script under `scripts/`.
+
+## 6. Which OMR engine to use as the draft
+
+Julian supplies the raster draft himself and expects it to be the *base*; the scan stays the authority. Rank the engines accordingly:
+
+1. **Julian's own captures** — the **MuseHub "Sheet Music Scanner" by Halbestunde** (a one-off paid desktop tool that only imports images/PDF and exports a scanned score as MusicXML/MIDI/PDF/**MSCZ**; it is *not* the Halbestunde freemium practice app and has no playback/loop/solo features — never describe it as such) and **Soundslice** (web; lyrics import but a stated risk of mixed-up instruments — verify every part/staff/clef assignment against the print). Use his file as the musical base and correct it; never silently re-derive it.
+2. **Audiveris, self-built, as an independent cross-check only.** Build: `git clone --depth 1 --branch 5.11.0 https://github.com/Audiveris/audiveris.git`, then `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-arm64 ./gradlew --no-daemon build` (5.11.0 needs **Java 25** — Java 21 fails with `invalid source release: 25`), unpack `app/build/distributions/app-5.11.0.tar`. Run: `TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata <dir>/bin/Audiveris -batch -force -save -export -output <outdir> -- <pdf>`. On 2 ARM cores ≈5 min per 11-page score. Its output reliably splits the choir into meaningless parts (`Voice0…`, or OCR noise like `"I:`, `3.`) — useful for pitches/rhythms, not for structure.
+3. **MuseScore NoteVision** (musescore.com, since July 2025; replaces the Audiveris the site ran for years). Web-only, no standalone app and no API: upload at `https://musescore.com/upload?format=PDF` (or Studio's File → Import PDF), it returns an editable **MSCZ** to download and refine locally. Claimed ≈95% recognition; free with an upload cap, unlimited on **Pro Plus**. Caveats to state to Julian: one-pass black box (no pre-export correction), and Muse Group says the feature *learns from uploaded files* — so licensed third-party scores are best uploaded only if that is acceptable; uploads are not auto-published and can be deleted, and the upload form's title/composer fields only matter if the score is published.
+
+Where two engines disagree, the scan decides — do not average them or trust the newer one by default.
+
+## 7. Choosing the base engine by measurement, not by vendor claim
+
+Roles must stay separate: the **musical base** (structure, pitches, rhythm) vs. the **independent cross-check**. An engine only replaces another if a measured comparison says so. Agreed procedure for a new candidate (e.g. MuseScore NoteVision): take an already-finished, human-verified work, feed the *same* source PDF to the candidate, and compare its raw output against (a) our verified edition, (b) the engine currently used as base, (c) the cross-check engine — in that order: part/staff assignment and names, measure count and numbering, then pitches, rhythm and lyrics. Count the divergences; the fewest structural errors wins the base role. Never promote an engine on a ~95 % marketing figure.
+
+Cost side of the same decision: Audiveris is local, free, unlimited, unattended and upload-free, which keeps it the natural cross-check; a web service with upload caps, one-pass output and a stated model-training use of uploads is an addition, not a like-for-like replacement.
