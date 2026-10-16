@@ -83,6 +83,19 @@ Roles must stay separate: the **musical base** (structure, pitches, rhythm) vs. 
 
 Cost side of the same decision: Audiveris is local, free, unlimited, unattended and upload-free, which keeps it the natural cross-check; a web service with upload caps, one-pass output and a stated model-training use of uploads is an addition, not a like-for-like replacement.
 
+**Measured result (Lobe den Herren, one already-verified work, all engines vs. the finished edition; notes compared as measure+pitch+duration multisets):**
+
+| engine | notes | exact | missing | extra | recall | precision | lyric chars vs. corrected text |
+|---|---|---|---|---|---|---|---|
+| MuseScore NoteVision | 993 | 961 | 123 | 32 | 88.7 % | 96.8 % | 51.7 % |
+| Halbestunde | 1095 | 957 | 127 | 138 (115 octave-only) | 88.3 % | 87.4 % | 68.0 % |
+
+Both invented one extra final bar (75 instead of 74 measures) and both split into 4 staves, so structure is a wash. Note-level is a tie within noise — NoteVision's extras are scattered, Halbestunde's are one systematic octave block that is cheap to fix. Lyrics decide it: Halbestunde's errors are mechanical (missing umlauts, verse number glued to the first syllable) and its syllabic segmentation survives, while NoteVision's are word misreadings (`verstat`/`vereint`, `hommhechen`/`himmlischen`, `Glören`/`Chören`, `Pselter`/`Psalter`, `Herßs`/`Harfe`) plus stray punctuation. Verdict: NoteVision does **not** replace Halbestunde as the base; it is worth keeping as a third, engine-independent cross-check. Caveat: the reference edition descends from the Halbestunde base, which flatters Halbestunde's structure.
+
+Practical defects seen: MuseScore 4.7.5 on this host **cannot open a NoteVision-produced MSCZ** (`-o out.musicxml file.mscz` exits 40, reproducible; adding a missing `automation.json` does not help) — parse the native `.mscx` inside the MSCZ directly instead. Audiveris 5.11.0 **crashed** on this score (`IndexOutOfBoundsException` during a page step, `Exit forced. Failure`) and produced no MusicXML, so "self-built OMR" is not a guaranteed column either.
+
+**Write-protect the reference project during delegation.** When subagents are told to read a finished project as a pattern, one of them deleted `out/<name>-Master.mscz` from it. Instruct children to treat reference projects as read-only *and* verify those directories afterwards (compare against the project's own bundle/manifest) before trusting them as a baseline.
+
 ## 8. MuseScore 4.7.5 empty-staff hiding and the printed page count
 
 Measured on Studio 4.7.5 headless (`xvfb-run -a musescore4 -o out.pdf in.mscz`), with `<hideEmptyStaves>1</hideEmptyStaves>` and `<dontHideStavesInFirstSystem>0</dontHideStavesInFirstSystem>` in `score_style.mss` (the `.mss` key keeps the old name; the binary also carries a `dontHideEmptyStavesInFirstSystem` symbol, but writing *that* spelling into the `.mss` changes nothing, and neither does injecting a `<Style>` block into the `.mscx`):
