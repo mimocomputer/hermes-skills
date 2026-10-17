@@ -12,12 +12,13 @@ for p in d:
           p.get_images(full=True), repr(p.get_text()[:200]))
 ```
 
-No fonts, no text, one large image per page → raster scan. The embedded image size (e.g. 1241×1755 for A4 at 150 dpi) is the detail ceiling: a crop rendered at 900 dpi holds the same information. Record it, and derive the printed scale from the staff lines (section 3) because that scale is needed later to reproduce the engraving.
+No fonts, no text, one large image per page → raster scan. The embedded image size (e.g. 1241×1755 for A4 at 150 dpi) is the detail ceiling: a crop rendered at 900 dpi holds the same information. **An OCR text layer does not make it a vector score.** A page carrying one large image *plus* a text layer set in a plain text font (Helvetica) is still a raster scan whose text layer is OCR garbage — a 300-dpi Whitacre scan returned `connissioned by the Moster Chorole of Tampo Bay` for `commissioned by the Master Chorale of Tampa Bay`. Use that layer only as a rough hint of where text sits; the image stays the authority. Decide vector vs. raster on *vector music drawings and music fonts*, never on the presence of extractable text. Record the embedded image size, and derive the printed scale from the staff lines (section 3) because that scale is needed later to reproduce the engraving.
 
 ## 2. Reading crops that are actually legible
 
 - Threshold the overlay away: keep ink below ~150–170 grey, everything else white. Grey watermarks and page show-through vanish, the music stays.
 - Keep each crop near the vision downscale limit (~1 MPix). Good shapes: 1–3 measures across the full system width at 400–500 dpi; a single staff only, at 800–1200 dpi, when pitch placement or ledger lines are in doubt.
+- **The real limit of `vision_analyze` is the LONGEST SIDE (~1280–1300 px), not the pixel count**, and the same file can be loaded only ~3 times per session (region crops of one file count together). A 1100×1400 crop is silently halved and its noteheads stop being readable, while a 1100×1260 crop of the same content stays sharp. Size crops so `max(w,h) <= 1280` (e.g. all staves × 2 measures at 300 dpi); generate one file per reading instead of zooming repeatedly into a full page.
 - Crop by page fractions, not absolute coordinates, so one recipe works on every page. `scripts/clean_crop.py` does both.
 - Read the printed measure numbers; the OMR's layout is not authority for bar numbering.
 
@@ -41,7 +42,9 @@ A MuseScore `.mscz` is a zip: `META-INF/container.xml` points at the root `.mscx
 - **Lyrics:** `<Lyrics><no>N</no>` is the verse row; the printed verse number is glued into the text as `"1. Lo"` and must be split off into `<verse>`; `<syllabic>` is missing on many single-syllable words and must be re-derived from the word structure. Diff the sung text against the scan — OMR engines drop umlauts and single letters ("Ko" for "Kö", "mich" for "mäch", "Leb" for "Lob", "hor" for "hö", "fuh" for "füh", "gill" for "giß").
 - **Directions:** staff/system texts and section labels ("Tpts.", "Org.", "v. 2: CHOR und ORGEL", "SOPRANEN") are mostly absent from OMR output; take them from the scan, including which staff and which system they belong to. Read the printed tempo symbol and its dot from an enlarged crop before trusting the OMR's BPM — MusicXML `sound/@tempo` is quarter-note BPM.
 
-## 6. OMR engines (only when the user has supplied no OMR export)
+- **Every OMR engine drops the KEY SIGNATURE when spelling notes**: a note printed on the F line comes back as `F` (natural), not `F#`. Both Audiveris and Halbestunde did this, and their `fifths` values contradicted each other between parts (2/3/4/6 inside one file). Never trust the engine's key: count the sharps/flats from an enlarged key-signature crop and cross-check the count harmonically — a key is only right if every pitch class that actually occurs frequently is diatonic in it (frequent A natural AND frequent D# together force 4 sharps, not 3 or 5). Then decide for every engine-reported "natural" whether the printed key makes it a sharp/flat.
+
+## 5. OMR engines — Audiveris, built and run locally
 
 The default source of a raster note base for this user is **his own Halbestunde/MuseHub export**, not a locally run engine. Run local OMR only to get a second, independent reading: a disagreement between the two drafts localises exactly which measures need an enlarged-crop decision.
 
@@ -57,7 +60,7 @@ TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata \
 - Copy `eng.traineddata` into `~/.config/AudiverisLtd/audiveris/tessdata/` before the first run (`/usr/share/tesseract-ocr/5/tessdata/` or the tesseract-ocr/tessdata 4.1.0 raw URL).
 - **Audiveris output is a cross-check, not a base:** it explodes a four-voice choral score into one `<part>` per detected voice with junk names lifted from the page (`"I:`, `3.`, `11.`), so part structure, staff grouping and printed labels must all be rebuilt even when the pitches are usable. Sanity-check an export by counting parts and measures before believing anything else about it.
 
-## 7. Order of work
+## 6. Order of work for a scan-plus-OMR job
 
 1. Classify the source; record staff-line geometry and the printed scale.
 2. Validate OMR structure measure by measure (tuplets applied); repair short voices, drop spurious trailing measures.
@@ -67,17 +70,15 @@ TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata \
 
 Reading every bar out of crops before step 3 exists is the failure mode: coordinate bookkeeping eats the session and the deliverable slips. Keep the durable project tree (`source/ work/ out/ scripts/ report/`) and write each probe as a small re-runnable script under `scripts/`.
 
-## 6. Which OMR engine to use as the draft
+## 7. Which engine is the base, which is the cross-check
 
 Julian supplies the raster draft himself and expects it to be the *base*; the scan stays the authority. Rank the engines accordingly:
 
-1. **Julian's own captures** — the **MuseHub "Sheet Music Scanner" by Halbestunde** (a one-off paid desktop tool that only imports images/PDF and exports a scanned score as MusicXML/MIDI/PDF/**MSCZ**; it is *not* the Halbestunde freemium practice app and has no playback/loop/solo features — never describe it as such) and **Soundslice** (web; lyrics import but a stated risk of mixed-up instruments — verify every part/staff/clef assignment against the print). Use his file as the musical base and correct it; never silently re-derive it.
-2. **Audiveris, self-built, as an independent cross-check only.** Build: `git clone --depth 1 --branch 5.11.0 https://github.com/Audiveris/audiveris.git`, then `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-arm64 ./gradlew --no-daemon build` (5.11.0 needs **Java 25** — Java 21 fails with `invalid source release: 25`), unpack `app/build/distributions/app-5.11.0.tar`. Run: `TESSDATA_PREFIX=~/.config/AudiverisLtd/audiveris/tessdata <dir>/bin/Audiveris -batch -force -save -export -output <outdir> -- <pdf>`. On 2 ARM cores ≈5 min per 11-page score. Its output reliably splits the choir into meaningless parts (`Voice0…`, or OCR noise like `"I:`, `3.`) — useful for pitches/rhythms, not for structure.
+1. **Julian's own captures** — the **MuseHub "Sheet Music Scanner" by Halbestunde** (a one-off paid desktop tool that only imports images/PDF and exports a scanned score as MusicXML/MIDI/PDF/**MSCZ**; it is *not* the Halbestunde freemium practice app and has no playback/loop/solo features — never describe it as such) and **Soundslice** (web; lyrics import but a stated risk of mixed-up instruments — verify every part/staff/clef assignment against the print). Use his file as the musical base and correct it; never silently re-derive it. Treat the export's *parts* as of unequal value: Halbestunde over-splits a choir **section-wise** when a voice drops out and re-enters (12 parts for a four-staff piece), so its note and staff data can be unusable while its **lyric time sequence** stays correct and worth reusing — count parts per measure before trusting its structure, and rebuild the staff layout from the print.
+2. **Audiveris, self-built, as an independent cross-check only** — build and run commands are in §5. Its output reliably splits the choir into meaningless parts (`Voice0…`, or OCR noise like `"I:`, `3.`) — useful for pitches/rhythms, not for structure.
 3. **MuseScore NoteVision** (musescore.com, since July 2025; replaces the Audiveris the site ran for years). Web-only, no standalone app and no API: upload at `https://musescore.com/upload?format=PDF` (or Studio's File → Import PDF), it returns an editable **MSCZ** to download and refine locally. Claimed ≈95% recognition; free with an upload cap, unlimited on **Pro Plus**. Caveats to state to Julian: one-pass black box (no pre-export correction), and Muse Group says the feature *learns from uploaded files* — so licensed third-party scores are best uploaded only if that is acceptable; uploads are not auto-published and can be deleted, and the upload form's title/composer fields only matter if the score is published.
 
 Where two engines disagree, the scan decides — do not average them or trust the newer one by default.
-
-## 7. Choosing the base engine by measurement, not by vendor claim
 
 Roles must stay separate: the **musical base** (structure, pitches, rhythm) vs. the **independent cross-check**. An engine only replaces another if a measured comparison says so. Agreed procedure for a new candidate (e.g. MuseScore NoteVision): take an already-finished, human-verified work, feed the *same* source PDF to the candidate, and compare its raw output against (a) our verified edition, (b) the engine currently used as base, (c) the cross-check engine — in that order: part/staff assignment and names, measure count and numbering, then pitches, rhythm and lyrics. Count the divergences; the fewest structural errors wins the base role. Never promote an engine on a ~95 % marketing figure.
 
