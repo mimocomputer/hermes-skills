@@ -5,6 +5,25 @@ consumer (autocomplete, `/help`, Telegram menu, Slack mapping) derives from
 it. New commands land often; `/help` in-session is always authoritative.
 (CLI) = interactive CLI/TUI only. (GW) = gateway platforms only.
 
+### Memory write-approval — the argument is mandatory
+
+`/memory approve` and `/memory reject` require an argument: either a pending id or the
+literal `all`. A bare `/memory approve` prints only `Usage: /memory approve|reject <id>
+(or 'all')` and changes nothing — the usage line reads as if the argument were optional,
+so users routinely retry the same bare command. The parser (`hermes_cli/write_approval_commands.py`,
+`_approve()`) returns usage on an empty argument list.
+
+Pending records live in `$HERMES_HOME/pending/<subsystem>/<id>.json` and each carries its
+`payload.operations`. **Read them before approving `all`** (the bare-id form is safer):
+approve/reject by id and prefer `all` only when the batches do not overlap.
+
+Why: a background-review batch is a list of ops, and a `replace` op rewrites the **whole
+matched entry**, not just the matched substring. A mis-anchored consolidation batch — one
+whose `old_text` names entry A while its new `content` belongs to entry B — silently destroys
+entry A when approved, and applying several overlapping batches in sequence lets the last
+write win. Inspect `matched_entry` and `content` per op, and reject any batch whose new
+content does not belong to the entry it is anchored to.
+
 ### Session
 ```
 /new (/reset) [name]     Fresh session
@@ -60,7 +79,7 @@ it. New commands land often; `/help` in-session is always authoritative.
 /skills                  Search/install/manage skills (CLI)
 /bundles                 List skill bundles (/<name> loads several skills)
 /learn <source>          Learn a reusable skill from dirs/URLs/this chat
-/memory [pending|approve|reject] Review pending memory writes / approval gate
+/memory [pending|approve|reject] [<id>|all] Review pending memory writes / approval gate
 /pet [toggle|list|<slug>] Petdex mascot control (CLI)
 /hatch [description]     Generate a new pet from a description (CLI)
 /cron [sub]              Manage scheduled tasks (CLI)
