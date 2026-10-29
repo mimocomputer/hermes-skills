@@ -38,6 +38,36 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
   of the last lyric-bearing note and require `onset >= lyric_end`). Only for single-voice output
   parts: in a two-voice (divisi) part the voices would label each other.
 * **Divisi belongs to the singer-group level.** A staff that carries two real simultaneous voices (measured: Christus Immanuel bass, v13 20 notes + v14 214; Rutter *The Lord bless you*, m. 45 men in two voices) is a divisi of that section. Deliver the two lines as two addressable parts (Tenor 1 / Tenor 2 with the same music where they agree, per the user's convention) rather than as voice 1 / voice 2 of a single staff; if a finished delivery still carries a second voice (e.g. Rutter 09 m. 45), report it and offer the split, and do not lyric-borrow between them.
+* **Rest-plus-note in one measure is an artefact, not a divisi.** Measured (Christmas Lullaby,
+  m. 49/53): a whole-measure rest in voice 1 beside the sounding note in voice 2, in *both* the
+  tenor and the bass file. The measure is not polyphonic — the note is the content. Normalise by
+  putting the sounding line into voice 1 and dropping the phantom rest (it disappears anyway,
+  because the note fills the measure), and name the measures in the report.
+
+## Splitting an already-delivered divisi part into one-voice files (dated follow-up pass)
+
+Julian asked for this on 2026-10-29 and restated it as a standing convention: it is **not** a
+default for transcriptions — only when he asks for it (in the brief or afterwards). Run it as
+its own dated pass on the existing delivery, not as a silent rewrite:
+
+* Per measure: a source measure with **one** pitched voice goes identically into **both**
+  outputs (where the parts agree, both lines carry the same music — his rule); a measure with
+  **two** pitched voices (real divisi) sends voice 1 to the `-1` file and voice 2 to the `-2`
+  file. Force `<voice>1</voice>` everywhere, keep the barline, give each new part unique
+  `xs:ID`s after deepcopy.
+* Names: `…-Tenor-1.xml` / `…-Tenor-2.xml`, `…-Bass-1.xml` / `…-Bass-2.xml`; files that stay
+  single-voice keep their old names, and every file that is *not* part of the split stays
+  byte-identical. Move the superseded files into `deliver/archiv-<date>/` instead of deleting
+  them, and delete the superseded names on the share **only after** the new names' remote sizes
+  match the local byte sizes.
+* Gates for the pass: XSD; per-measure clock; "exactly one voice per measure" asserted on every
+  new file; a **per-measure content comparison against the pre-delivery file** (single-voice
+  measure = identical in both outputs, divisi measure = matches the corresponding source voice);
+  a full MuseScore roundtrip per new file (pitched multiset + lyrics); and a visual check of the
+  split measures in the render.
+* Expect the split second part to be **wordless** where the print hangs the text on the first
+  voice: say so explicitly (with the affected measures) and offer the sibling-syllable rule from
+  the extraction, instead of silently adding syllables or leaving the reader guessing.
 
 ## What to carry over, what to drop
 
