@@ -37,9 +37,7 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
   (b) while the target's previous syllable is still sounding (track `lyric_end = onset+duration`
   of the last lyric-bearing note and require `onset >= lyric_end`). Only for single-voice output
   parts: in a two-voice (divisi) part the voices would label each other.
-* **Divisi is not an error.** A bass staff may carry two real voices (measured: Christus
-  Immanuel, v13 20 notes + v14 214). Keep both as voices 1/2 of the delivered part; do not merge
-  and do not lyric-borrow between them.
+* **Divisi belongs to the singer-group level.** A staff that carries two real simultaneous voices (measured: Christus Immanuel bass, v13 20 notes + v14 214; Rutter *The Lord bless you*, m. 45 men in two voices) is a divisi of that section. Deliver the two lines as two addressable parts (Tenor 1 / Tenor 2 with the same music where they agree, per the user's convention) rather than as voice 1 / voice 2 of a single staff; if a finished delivery still carries a second voice (e.g. Rutter 09 m. 45), report it and offer the split, and do not lyric-borrow between them.
 
 ## What to carry over, what to drop
 
