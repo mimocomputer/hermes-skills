@@ -44,6 +44,31 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
   putting the sounding line into voice 1 and dropping the phantom rest (it disappears anyway,
   because the note fills the measure), and name the measures in the report.
 
+## Delivery form for an extract set
+
+An extract set is a delivery like any other and gets the agreed form — per voice the native
+`.mscz` **and** the `-DAISY.mxl` (`-DAISY` only on the MXL; the MXL must be packed from the
+tagged MusicXML because MuseScore's own export drops `xml:lang`), plus the German report. An
+`.xml`-only handover is a deviation; if one happened, name it and re-deliver, and keep the
+uncompressed XML out of the share afterwards (project folder as the authoritative source).
+
+* **Language tagging per lyric row:** `xml:lang` on `<text>` (delivery: `de` / `en`). Determine
+  the language of **each row from its text**, never from the row position — measured: work 02
+  prints row 1 in English and row 2 in German, 01 has four German strophes, others are
+  German-first or single-language. Files whose source was already tagged keep their tags.
+* **Editorial metadata per extract:** `<miscellaneous-field>` for `Stimmauszug`,
+  `Quelle der Stimme`, `Bearbeitung`, plus `T/B split` on split-off parts and any correction
+  note. The `<miscellaneous>` element may already exist — append the fields inside it.
+* **Checks:** XSD on every tagged file; the MXL payload must be byte-identical to the tagged
+  XML; MuseScore must open every `.mscz` and every `.mxl` (sample) and the `.mscz` roundtrip
+  must reproduce the pitched and lyric multisets. Expect the language tags to be gone from
+  MuseScore's own export and say that the MXL is the file for the braille translator.
+* **Audit German lyrics only** once the rows are tagged: filter the syllable stream by
+  `xml:lang="de"` before running hunspell, otherwise the English rows drown the report.
+  Expect OMR letter damage in exactly this class (measured, work 03: `Fiihr`/`flihr` for
+  “Führ”, `geniigt`, `fiir`, `sanfres`, `zZu`) — report it, do not silently “fix” the source's
+  syllables.
+
 ## Splitting an already-delivered divisi part into one-voice files (dated follow-up pass)
 
 Julian asked for this on 2026-10-29 and restated it as a standing convention: it is **not** a
