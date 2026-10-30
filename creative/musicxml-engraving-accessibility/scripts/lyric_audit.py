@@ -51,6 +51,40 @@ def words_from_xml(path):
                 yield (key[0], key[1], key[2], start, word)
 
 
+def hyphenation_faults(path):
+    """Report hyphenations that are never closed (DAISY G12: group words correctly).
+
+    A printed hyphen (`begin`/`middle`) must be closed by an `end` on the next
+    syllable of the same word.  OMR exports routinely set that closing syllable to
+    `single`, which splits one word into two in braille; a word left open at the end
+    of a voice is the other half of the same defect class.  Both are invisible to the
+    dictionary check above, because each fragment can be a valid word ('A' + 've').
+    """
+    faults = []
+    root = etree.parse(path).getroot()
+    for pi, part in enumerate(root.findall('part')):
+        pending = {}
+        for m in part.findall('measure'):
+            num = m.get('number', '?')
+            for el in m.findall('note'):
+                st = el.findtext('staff') or '1'
+                for l in el.findall('lyric'):
+                    key = (pi, st, l.get('number'))
+                    text = (l.findtext('text') or '').strip()
+                    syl = l.findtext('syllabic') or 'single'
+                    if syl in ('begin', 'middle'):
+                        pending[key] = (num, text)
+                    elif syl == 'end':
+                        pending.pop(key, None)
+                    else:  # single
+                        if key in pending:
+                            pnum, ptext = pending.pop(key)
+                            faults.append((pi + 1, st, key[2], pnum, ptext, num, text))
+        for key, (pnum, ptext) in pending.items():
+            faults.append((key[0] + 1, key[1], key[2], pnum, ptext, 'Werkende', ''))
+    return faults
+
+
 def hunspell_bad(words):
     if not words:
         return {}
@@ -84,7 +118,15 @@ def main(path):
         print('umlaut/letter suspects:')
         for e in sus:
             print(f'   part{e[0]+1} staff{e[1]} verse{e[2]} from m{e[3]}: {e[4]!r}')
+    faults = hyphenation_faults(path)
+    if faults:
+        print('unterminated hyphenations (DAISY G12 — word grouping breaks in braille):')
+        for pi, st, verse, pnum, ptext, num, text in faults:
+            print(f'   part{pi} staff{st} verse{verse}: {ptext!r} (m{pnum}) runs into {text!r} (m{num})')
+        return 1
+    print('unterminated hyphenations: none')
+    return 0
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    sys.exit(main(sys.argv[1]))

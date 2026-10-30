@@ -33,7 +33,12 @@ sind werk-unabhängig. Projektform:
 9. `roundtrip.py`, `roundtrip_pitches.py` — MusicXML → MuseScore → MusicXML vergleichen
    (Noten, Dauern, Tonhöhen, Silben). `check_midi.py` — Länge, Tempo, Repeats.
 10. `lyric_audit.py` — gesungene Wörter aus den Silben rekonstruieren und gegen
-    `hunspell -d de_DE` prüfen (findet fehlende Umlaute und Buchstabendreher).
+    `hunspell -d de_DE` prüfen (findet fehlende Umlaute und Buchstabendreher); zusätzlich
+    `hyphenation_faults()`: offene `begin`/`middle`-Silben, die nie von einem `end`
+    geschlossen werden (Silbe fälschlich `single` oder Wort am Stimmenende offen) —
+    bricht die Wortgruppierung im Braille (DAISY G12). Exit 1 bei Treffern, damit der
+    Lauf in einer Kette auffällt. Beispiel: 07 Christmas Lullaby vor der Korrektur
+    `"A`(T28)→`ve`(T29), `nei`(T46)→`ther`(T46), `"A`(T64)→`ve`(T65); danach 0.
 11. `compare.py` — Scan-Ausschnitt über Render-Ausschnitt legen und visuell vergleichen;
     `bundle.sh` — Bundle + SHA-256-Manifest.
 

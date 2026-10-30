@@ -99,3 +99,21 @@ sessions still have zero `kanban_*` schema footprint unless configured.
   within a board for workspace-path + memory-key isolation.
 
 User docs: https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban
+
+### Git-versioned state (auto-commit timers) and publishing such a repo
+
+- A skills dir / config snapshot versioned by an hourly timer (`~/.hermes/hooks/autocommit.sh
+  {skills|private-config}` from a `.timer` unit) needs the push step added **only** for the repo
+  that may leave the machine; keep private-config local. A failed push must not abort the hook —
+  report it and keep the local commits (fetch + one rebase retry, then give up loudly).
+- Before publishing: untrack the internal state **and purge it from history**. GitHub rejects any
+  file over 100 MB, so a single tracked curator backup tarball makes every push fail. Watch for
+  `.curator_backups/`, `.curator_state` (a *file* — ignore it without the trailing slash, or the
+  hook's `git add -A` re-adds it), `.curator_ledger.jsonl`, `.hub/`, `.locks/`, `*.lock`.
+- `git filter-repo --invert-paths --path …` rewrites history; then verify with `git log --all --
+  <path>` (empty) and `git log -S '<content>'` (no hits) and push `--force-with-lease`.
+  filter-repo's `--force` can drop the `origin` remote — check `git remote -v` and re-add it, or
+  the auto-push reports "kein origin" forever.
+- Prove a public repo from the outside: `gh api repos/<owner>/<repo>/contents/<internal-path>`
+  must 404 for every internal path, plus blob count and largest blob — not just the success line
+  of `gh repo create --push`.
