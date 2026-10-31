@@ -91,8 +91,16 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
   sonst makebraille-support@dzblesen.de fragen. Bis das geklärt ist, bleibt Julians `Chor`
   (Zustellung an sein Gmail, nachweislich zuverlässig) der sichere Weg.
 * **Klon steht bereit:** Profil `Hermes-AgentMail` im Konto (Kopie von `Chor`, Empfänger
-  `mimo@agentmail.to`). Für eigene Läufe `--profile Hermes-AgentMail` setzen; `Chor` bleibt
-  Julians Profil mit seiner Adresse.
+  `mimo@agentmail.to`, Stand 31.10.2026 feldweise geprüft: nur Adresse und Profilname weichen von
+  `Chor` ab). Für eigene Läufe `--profile Hermes-AgentMail` setzen; `Chor` bleibt Julians Profil.
+* **Klon anlegen ist eine Falle:** Werte nie als flaches `{name: value}`-Dict über alle Felder in
+  Dokumentreihenfolge einsammeln — bei Radiogruppen gewinnt sonst der **letzte** Eintrag (jeder
+  Radiotag trägt sein eigenes `value`), und der neue Profil wird zu einem Default-Profil (im
+  Praxisfall: `country=usa`, `division=bobc`, `text_format=de_contracted`, `merge_parts=hybrid`,
+  `user_profile=conductors_edition`, `makebraille_out_format=pef`). Richtig ist `_form_fields()`:
+  nur angehakte Wahlfelder, ein Wert je Name. Danach gegen das Quellprofil zurücklesen und die
+  Differenz prüfen (erwartet: nur `email` und Profilname). Und: die **Adresse erst in einem
+  zweiten Speichervorgang** setzen — beim Anlegen wurde sie ignoriert.
 * **Die Empfängeradresse ist profilweit.** Nachweis: Adresse im Klon geändert, `Chor` blieb
   unverändert. Beim **Anlegen** eines Klons mit `config --save --name NEU --email ADDR` wurde die
   neue Adresse nicht übernommen — erst ein zweiter Speichervorgang unter dem neuen Namen setzte
