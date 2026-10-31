@@ -80,6 +80,29 @@ Ablauf muss die Zieladresse also eine sein, die der Agent lesen kann (AgentMail-
 ist der Kreislauf Upload → Mail → Datei einlesen geschlossen. Ein Profil auf eine
 AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 
+## Profile und Antwortformen (Stand 31.10.2026)
+
+* **Klon steht bereit:** Profil `Hermes-AgentMail` im Konto (Kopie von `Chor`, Empfänger
+  `mimo@agentmail.to`). Für eigene Läufe `--profile Hermes-AgentMail` setzen; `Chor` bleibt
+  Julians Profil mit seiner Adresse.
+* **Die Empfängeradresse ist profilweit.** Nachweis: Adresse im Klon geändert, `Chor` blieb
+  unverändert. Beim **Anlegen** eines Klons mit `config --save --name NEU --email ADDR` wurde die
+  neue Adresse nicht übernommen — erst ein zweiter Speichervorgang unter dem neuen Namen setzte
+  sie. Also: anlegen, zurücklesen, Adresse ggf. nachziehen.
+* **Profilwechsel ist ein eigener Schritt** (`mode=switch_uprofile`) und muss vor dem Upload
+  passieren; danach prüfen (das aktiv gewählte `<option ... selected>`); ein
+  `uprofile_selector` im Upload-POST allein wechselt das Profil nicht.
+* **Drei Antwortformen auf einen Upload:** (a) Danke-Seite „Your converted music Braille file
+  will be sent to: <adresse>." — akzeptiert, nennt die Zieladresse (beste Bestätigung),
+  (b) Startseite mit „Your file is still being converted, please wait." — angenommen,
+  (c) leere Antwort (HTTP 200, 0 Byte) — keine Bestätigung, Upload wiederholen. Welche Form
+  kommt, hängt offenbar vom Serverzustand ab, **nicht** vom Profil: `Chor` und
+  `Chor_Direktausgabe` haben feldweise identische Einstellungen (44/46 gleich, nur der Name
+  differiert) und lieferten dennoch beide Formen.
+* **Der Upload-POST trägt die kompletten Profileinstellungen** (u. a. `email`, `paper_width`,
+  `text_format`, `filter_*`) — nach dem Profilwechsel also immer das Formular der frischen Seite
+  verwenden, nie ein vorher eingesammeltes.
+
 Ohne Vault (andere Umgebung): `--user <name> --password-file <datei>`. Passwörter **nie** als
 Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
 
@@ -88,11 +111,12 @@ Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
 * **Geprüft:** Vault-Anlage über beide Wege, Vault-Auflösung, HTTP-Sitzung (Cookies), Login-POST
   auf `/MakeBraille` mit `login`/`passwd`/`mode=server_login` und die Fehlererkennung — eine
   falsche Kennung liefert wieder die Login-Seite, der Client meldet „Login abgelehnt".
-* **Upload:** der POST geht mit den aus der Startseite gelesenen Formularfeldern und dem
-  Dateifeld `file` (nimmt `.capx`, `.musicxml`, `.mxl`, `.mxml`, `.xml`, `.zip`; Profil/Schalter vorher per `switch_uprofile`) an `/MakeBraille`. Der
-  Dienst antwortet auch bei Annahme nur mit der Startseite — daraus lässt sich **keine**
-  Bestätigung ableiten. Beleg ist allein die Ergebnis-Mail; eine Konvertierung gilt erst als
-  erledigt, wenn die Datei da ist.
+* **Upload (am Nutzer bestätigt, 31.10.2026):** der POST geht mit den aus der Startseite gelesenen
+  Formularfeldern und dem Dateifeld `file` (nimmt `.capx`, `.musicxml`, `.mxl`, `.mxml`, `.xml`,
+  `.zip`; Profil/Schalter vorher per `switch_uprofile`) an `/MakeBraille`; zwei Testkonvertierungen
+  kamen als Mail an. Der Dienst antwortet auch bei Annahme nur mit der Startseite — daraus lässt
+  sich **keine** Bestätigung ableiten. Beleg ist allein die Ergebnis-Mail; eine Konvertierung gilt
+  erst als erledigt, wenn die Datei da ist.
 * **Profil/Einstellungen** (Stand 30.10.2026, Konto julian.dreykorn): Profile `Chor`,
   `Chor_Direktausgabe`, `Nach_Systemen_Fingersätze`, `Orgel`, `Orgel_Englisch`, `Profil1_20220206`;
   Felder `makebraille_out_format` (z. B. `braille`), `country`, `user_profile`, `text_format`,

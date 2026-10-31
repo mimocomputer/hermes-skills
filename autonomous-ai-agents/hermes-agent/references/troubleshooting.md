@@ -91,6 +91,19 @@ Facts that come with the switch:
   vault-fill workflow therefore needs a `local` (or `/browser connect`) session.
 - Toggle back: `hermes config set browser.cloud_provider browser-use` (or `local`).
 
+### `.env` changes need a gateway restart — which the agent cannot do from inside
+
+`_build_browser_env()` / `hermes_subprocess_env()` start from `os.environ`, so a new line in
+`~/.hermes/.env` (e.g. `AGENT_BROWSER_ARGS=--no-sandbox`) only reaches child processes after the
+parent restarted. Config **changes in `config.yaml`** are picked up live; `.env` is not.
+
+A gateway-hosted agent must not try to restart its own parent: `systemctl --user restart
+hermes-gateway` and `hermes gateway restart` are both refused from inside the gateway (the
+SIGTERM would kill the command mid-flight), and a detached `sleep N; systemctl restart` wrapper
+is blocked as well. Route it to the human: **`/restart` in the chat**, or
+`systemctl --user restart hermes-gateway` in a shell outside the gateway. Verify afterwards from
+the log (`systemctl --user status hermes-gateway`) instead of assuming the change is live.
+
 ### Changes not taking effect
 - **Tools/skills:** `/reset` starts a new session with updated toolset
 - **Config changes:** In gateway: `/restart`. In CLI: exit and relaunch.

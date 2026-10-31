@@ -405,13 +405,49 @@ def _summarize_html(body: bytes) -> str:
     return " | ".join(lines)
 
 
+def _selected_profile(page: bytes) -> str | None:
+    """Aktiv gewaehltes Profil (``<option ... selected>``) aus einer Seite."""
+    for form in parse(page).forms:
+        for f in form["fields"]:
+            if f["name"] == "uprofile_selector":
+                return f["value"] or None
+    return None
+
+
+_STATUS_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("still being converted", "angenommen — Konvertierung laeuft, Ergebnis kommt per E-Mail"),
+    ("converted", "Antwort nennt eine fertige Konvertierung"),
+    ("error", "Antwort enthaelt 'error'"),
+    ("fehler", "Antwort enthaelt 'Fehler'"),
+    ("problem", "Antwort enthaelt 'problem'"),
+    ("not valid", "Antwort meldet eine ungueltige Datei"),
+    ("please wait", "angenommen — bitte warten"),
+)
+
+
+def _status_line(body: bytes) -> str:
+    """Die dynamische Statuszeile der Antwort (z. B. 'still being converted')."""
+    text = body.decode("utf-8", "replace")
+    text = re.sub(r"(?is)<(script|style).*?</\1>", " ", text)
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text))
+    for needle, message in _STATUS_PATTERNS:
+        if needle in text.lower():
+            return message
+    m = re.search(r"Main page (.{0,160}?) Hints", text)
+    return (m.group(1).strip() if m else "")[:160]
+
+
 def cmd_convert(args) -> int:
     """Datei(en) hochladen und die Braille-Antwort sichern.
 
     Der Upload benutzt das Formular der Startseite mit dem Dateifeld; alle
     uebrigen Felder gehen mit ihren Vorgabewerten mit, der Submit-Knopf mit dem
-    Wert von --mode (Standard: create). Das Ausgabeprofil kommt aus
-    --profile (Select-Wert, z. B. Chor, Orgel, Orgel_Englisch).
+    Wert von --mode (Standard: create). Mit --profile wird zuerst ausdruecklich
+    umgeschaltet (mode=switch_uprofile) und das Ergebnis geprueft — ein
+    ``uprofile_selector`` im Upload-POST allein wechselt das Profil nicht
+    zuverlaessig. Die Antwort wird auf die Statuszeile geprueft ("Your file is
+    still being converted" = angenommen); die Datei selbst kommt per E-Mail ans
+    Profil.
     """
     user, password, _ = credentials_from_args(args)
     sess = Session()
@@ -426,8 +462,23 @@ def cmd_convert(args) -> int:
             "Nach dem Login kein Formular mit Dateifeld gefunden — Startseite in "
             f"{outdir}/startseite.html gesichert."
         )
-    fields = _form_fields(target, mode=args.mode, profile=args.profile)
+    fields = _form_fields(target, mode=args.mode)
     url = urllib.parse.urljoin(BASE + "/", target["action"] or LOGIN_PATH)
+    if args.profile:
+        switch = _form_fields(target, mode="switch_uprofile", profile=args.profile)
+        _, status, _, page = sess.post_multipart(url, switch, {})
+        active = _selected_profile(page)
+        if active and active != args.profile:
+            raise MakeBrailleError(
+                f"Profilwechsel fehlgeschlagen: aktiv bleibt {active!r}, nicht {args.profile!r}."
+            )
+        after = _upload_form(page)
+        if after is None:
+            (outdir / "profilwechsel.html").write_bytes(page)
+            raise MakeBrailleError("Nach dem Profilwechsel kein Upload-Formular gefunden "
+                                   f"(Seite in {outdir}/profilwechsel.html).")
+        target, fields = after, _form_fields(after, mode=args.mode)
+        print(f"Profil {args.profile!r} aktiv (HTTP {status}); Upload mit diesem Profil.")
     filefield = target["files"][0]["name"]
     print(f"Upload nach {url} mit {filefield!r}, Felder: {', '.join(fields)}")
     rc = 0
@@ -437,17 +488,21 @@ def cmd_convert(args) -> int:
         _, status, headers, body = sess.post_multipart(url, fields, {filefield: (src.name, data)})
         ctype = (headers.get("Content-Type") or "").lower()
         print(f"   HTTP {status}, {ctype or 'ohne Content-Type'}, {len(body)} Byte")
-        if "html" in ctype or body[:200].lower().lstrip().startswith(b"<!doctype html"):
+        if body and ("html" in ctype or body[:200].lower().lstrip().startswith(b"<!doctype html")):
             dest = outdir / (src.stem + ".antwort.html")
             dest.write_bytes(body)
             print(f"{src.name}: HTML-Antwort -> {dest} ({len(body)} Byte)")
             print(f"   {_summarize_html(body)}")
+            print(f"   Status: {_status_line(body)}")
             rc = max(rc, 1)
-        else:
+        elif body:
             name = _filename_from_headers(headers) or (src.stem + ".brf")
             dest = outdir / name
             dest.write_bytes(body)
             print(f"{src.name}: Braille gespeichert -> {dest} ({len(body)} Byte, {ctype or 'ohne Typ'})")
+        else:
+            print(f"{src.name}: leere Antwort (HTTP {status}) — keine Bestaetigung, Upload wiederholen.")
+            rc = max(rc, 2)
     return rc
 
 
