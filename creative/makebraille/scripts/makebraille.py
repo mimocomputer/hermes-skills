@@ -313,24 +313,33 @@ def _filename_from_headers(headers) -> str | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--handle", default=argparse.SUPPRESS,
+                        help="Vault-Eintrag (Standard: der zur Origin passende)")
+    common.add_argument("--out", default=argparse.SUPPRESS, help="Zielordner (Standard: ./out)")
+    common.add_argument("--user", default=argparse.SUPPRESS)
+    common.add_argument("--password-file", default=argparse.SUPPRESS)
+
     ap = argparse.ArgumentParser(prog="makebraille", description=__doc__,
+                                 parents=[common],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--handle", help="Vault-Eintrag (Standard: der zur Origin passende)")
-    ap.add_argument("--out", default="out", help="Zielordner (Standard: ./out)")
-    ap.add_argument("--user")
-    ap.add_argument("--password-file")
     subs = ap.add_subparsers(dest="cmd", required=True)
 
-    subs.add_parser("check", help="Login testen")
-    d = subs.add_parser("dump", help="Seite nach dem Login sichern")
+    subs.add_parser("check", help="Login testen", parents=[common])
+    d = subs.add_parser("dump", help="Seite nach dem Login sichern", parents=[common])
     d.add_argument("--url")
     d.add_argument("--name")
-    c = subs.add_parser("convert", help="Datei(en) konvertieren")
+    c = subs.add_parser("convert", help="Datei(en) konvertieren", parents=[common])
     c.add_argument("files", nargs="+")
-    b = subs.add_parser("batch", help="Stapel (Glob-Muster)")
+    b = subs.add_parser("batch", help="Stapel (Glob-Muster)", parents=[common])
     b.add_argument("patterns", nargs="+")
 
     args = ap.parse_args(argv)
+    # Optionen duerfen vor oder nach dem Unterbefehl stehen; SUPPRESS haelt die
+    # Vorgabe des Hauptparsers am Leben.
+    for name, default in (("handle", None), ("out", "out"), ("user", None), ("password_file", None)):
+        if not hasattr(args, name):
+            setattr(args, name, default)
     try:
         if args.cmd == "check":
             return cmd_check(args)
