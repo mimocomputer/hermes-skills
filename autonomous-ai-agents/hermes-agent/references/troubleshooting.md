@@ -53,6 +53,11 @@ says `connecting to wss://...cdp.browser-use.com` = real cloud browser.
 
 ### Local Chromium (`cloud_provider: local`) dies with `chrome-not-running`
 
+**Verified working 31.10.2026 on this host** (Ubuntu 26.04, no desktop): `.env`
+`AGENT_BROWSER_ARGS=--no-sandbox` + gateway restart via `/restart` → the harness log reads
+`remote=local`, the packaged Chromium runs with `--no-sandbox`, and `browser_vault_fill` fills
+and submits a login in the gateway (proof: the page showed `Logout (<user>)`).
+
 The daemon log (`~/.config/browser-harness/tmp/bu-<session>.log`) carries one line:
 `fatal: chrome-not-running: no supported Chromium-family browser is running`. The packaged
 browser is fine — it never got to run, because **Chrome's sandbox is unavailable on Ubuntu

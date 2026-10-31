@@ -82,6 +82,14 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 
 ## Profile und Antwortformen (Stand 31.10.2026)
 
+* **Offen (31.10.2026): Zustellung an AgentMail.** Die Danke-Seite der Testkonvertierung mit dem
+  Klon nannte `mimo@agentmail.to`, im AgentMail-Postfach kam die Mail aber auch nach 25 Minuten
+  nicht an (43 Nachrichten im Postfach, alle von GitHub; keine Empfangs-Sperrliste aktiv,
+  `GET /v0/inboxes/<id>/lists/receive/allow` ist leer). Zu klären: kann der Dienst an fremde
+  Domains ausliefern (Adresse im Profil bestätigungspflichtig?), und nimmt AgentMail Post von
+  `no-reply@dzblesen.de` an? Testmail vom Nutzer-Gmail an das Postfach klärt die zweite Frage;
+  sonst makebraille-support@dzblesen.de fragen. Bis das geklärt ist, bleibt Julians `Chor`
+  (Zustellung an sein Gmail, nachweislich zuverlässig) der sichere Weg.
 * **Klon steht bereit:** Profil `Hermes-AgentMail` im Konto (Kopie von `Chor`, Empfänger
   `mimo@agentmail.to`). Für eigene Läufe `--profile Hermes-AgentMail` setzen; `Chor` bleibt
   Julians Profil mit seiner Adresse.
