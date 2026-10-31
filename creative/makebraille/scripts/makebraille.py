@@ -117,13 +117,26 @@ class Session:
         )
         self.opener.addheaders = [("User-Agent", USER_AGENT)]
 
-    def request(self, url: str, data: bytes | None = None, headers: dict | None = None):
+    def request(self, url: str, data: bytes | None = None, headers: dict | None = None,
+                _depth: int = 0):
+        """Eine Anfrage, Redirects werden manuell nachgezogen (max. 5).
+
+        Rueckgabe: (endgueltige URL, Status, Header, Rumpf).
+        """
         req = urllib.request.Request(url, data=data, headers=headers or {})
         try:
-            with self.opener.open(req, timeout=120) as resp:
-                return resp.geturl(), resp.headers, resp.read()
+            with self.opener.open(req, timeout=180) as resp:
+                status, hdrs, body, final = resp.status, resp.headers, resp.read(), resp.geturl()
         except urllib.error.HTTPError as exc:
-            return url, exc.headers, exc.read()
+            status, hdrs, body, final = exc.code, exc.headers, exc.read(), url
+        if 300 <= status < 400 and _depth < 5:
+            loc = hdrs.get("Location")
+            if loc:
+                target = urllib.parse.urljoin(final, loc)
+                if status in (307, 308) and data is not None:
+                    return self.request(target, data, headers, _depth + 1)
+                return self.request(target, None, None, _depth + 1)
+        return final, status, hdrs, body
 
     def get(self, url: str):
         return self.request(url)
@@ -166,6 +179,7 @@ class FormParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.forms: list[dict] = []
         self._current: dict | None = None
+        self._select: dict | None = None
         self.title = ""
         self._in_title = False
 
@@ -176,12 +190,21 @@ class FormParser(HTMLParser):
         elif tag == "form":
             self._current = {"action": a.get("action", ""), "method": (a.get("method") or "get").lower(),
                              "enctype": a.get("enctype", ""), "fields": [], "files": [], "submits": []}
-        elif tag in ("input", "select", "textarea", "button") and self._current is not None:
+        elif tag == "select" and self._current is not None and a.get("name"):
+            self._select = {"name": a["name"], "type": "select", "value": "", "options": []}
+            self._current["fields"].append(self._select)
+        elif tag == "option" and self._select is not None:
+            value = a.get("value", "")
+            self._select["options"].append(value)
+            if "selected" in a or self._select["value"] == "":
+                self._select["value"] = value
+        elif tag in ("input", "textarea", "button") and self._current is not None:
             name = a.get("name")
             if not name:
                 return
             itype = (a.get("type") or ("submit" if tag == "button" else "text")).lower()
-            entry = {"name": name, "type": itype, "value": a.get("value", "")}
+            entry = {"name": name, "type": itype, "value": a.get("value", ""),
+                     "checked": "checked" in a, "disabled": "disabled" in a}
             if itype == "file":
                 self._current["files"].append(entry)
             elif itype in ("submit", "button", "image"):
@@ -193,6 +216,8 @@ class FormParser(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "title":
             self._in_title = False
+        elif tag == "select":
+            self._select = None
         elif tag == "form" and self._current is not None:
             self.forms.append(self._current)
             self._current = None
@@ -218,13 +243,55 @@ def do_login(sess: Session, user: str, password: str) -> bytes:
         raise MakeBrailleError(
             f"Benutzer/Passwort laenger als {MAX_LOGIN_LEN} Zeichen — das Formular lehnt das ab."
         )
-    _, headers, body = sess.post(
+    _, status, _, body = sess.post(
         BASE + LOGIN_PATH,
         {"login": user, "passwd": password, "mode": "server_login"},
     )
+    if not body:
+        raise MakeBrailleError(f"Login: leere Antwort (HTTP {status}).")
     if looks_like_login(body):
         raise MakeBrailleError("Login abgelehnt — Zugangsdaten falsch?")
     return body
+
+
+def _describe_forms(p: FormParser) -> None:
+    print(f"Seitentitel: {p.title.strip() or '(ohne Titel)'}")
+    print(f"Formulare: {len(p.forms)}")
+    for i, form in enumerate(p.forms, 1):
+        print(f"  [{i}] action={form['action']!r} method={form['method']} enctype={form['enctype']!r}")
+        for f in form["fields"]:
+            if f["type"] in ("submit", "button", "image"):
+                continue
+            extra = ""
+            if f["type"] == "select":
+                extra = f"  Optionen: {', '.join(f.get('options', []))}"
+            elif f["type"] in ("radio", "checkbox"):
+                extra = "  [angehakt]" if f.get("checked") else ""
+            print(f"      {f['name']} ({f['type']}) = {f['value']!r}{extra}")
+        print(f"      Dateifelder: {', '.join(f['name'] for f in form['files']) or '-'}")
+        if form["submits"]:
+            print("      Buttons: " + ", ".join(f"{s['name']}={s['value']}" for s in form["submits"]))
+
+
+def _upload_form(home: bytes) -> dict | None:
+    p = parse(home)
+    return next((f for f in p.forms if f["files"]), None)
+
+
+def _form_fields(form: dict, mode: str | None = None, profile: str | None = None) -> dict[str, str]:
+    """Alle nicht-Button-Felder mit ihren Vorgabewerten; Select-Werte inklusive."""
+    fields: dict[str, str] = {}
+    for f in form["fields"]:
+        if f["type"] in ("file", "submit", "button", "image") or f.get("disabled"):
+            continue
+        if f["type"] in ("radio", "checkbox") and not f.get("checked"):
+            continue  # nicht angehakte Wahlfelder werden nicht mitgeschickt
+        fields[f["name"]] = f["value"]
+    if profile:
+        fields["uprofile_selector"] = profile
+    if mode:
+        fields["mode"] = mode
+    return fields
 
 
 def cmd_check(args) -> int:
@@ -232,15 +299,8 @@ def cmd_check(args) -> int:
     sess = Session()
     sess.get(BASE + LOGIN_PATH)
     body = do_login(sess, user, password)
-    p = parse(body)
     print(f"Login ok ({source}).")
-    print(f"Seitentitel: {p.title.strip() or '(ohne Titel)'}")
-    print(f"Formulare: {len(p.forms)}")
-    for i, form in enumerate(p.forms, 1):
-        files = ", ".join(f["name"] for f in form["files"]) or "-"
-        print(f"  [{i}] action={form['action']!r} method={form['method']} enctype={form['enctype']!r}")
-        print(f"      Felder: {', '.join(f['name'] for f in form['fields']) or '-'}")
-        print(f"      Datei: {files}")
+    _describe_forms(parse(body))
     return 0
 
 
@@ -249,60 +309,145 @@ def cmd_dump(args) -> int:
     sess = Session()
     sess.get(BASE + LOGIN_PATH)
     body = do_login(sess, user, password)
-    url = args.url or None
-    if url:
-        _, _, body = sess.get(urllib.parse.urljoin(BASE + "/", url))
-    out = Path(args.out) / (args.name or "seite.html")
+    page = "seite.html"
+    if args.mode:
+        form = _upload_form(body) or (parse(body).forms or [None])[0]
+        if form is None:
+            raise MakeBrailleError("Kein Formular auf der Startseite gefunden.")
+        url = urllib.parse.urljoin(BASE + "/", form["action"] or LOGIN_PATH)
+        fields = _form_fields(form, mode=args.mode, profile=args.profile)
+        _, status, _, body = sess.post_multipart(url, fields, {})
+        page = f"seite-{args.mode}.html"
+        print(f"POST {url} (mode={args.mode}" + (f", profile={args.profile}" if args.profile else "") + ")")
+    elif args.url:
+        _, status, _, body = sess.get(urllib.parse.urljoin(BASE + "/", args.url))
+    name = args.name or page
+    out = Path(args.out) / name
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(body)
     print(f"gespeichert: {out} ({len(body)} Byte)")
     return 0
 
 
-def cmd_convert(args) -> int:
-    """Datei(en) hochladen und die Braille-Antwort sichern.
+def cmd_config(args) -> int:
+    """Konfigurationsseite lesen; optional als neues Profil speichern.
 
-    Der Upload nutzt das erste Formular der Startseite mit einem Dateifeld; alle
-    uebrigen Felder werden mit ihren Vorgabewerten mitgeschickt, Submit-Felder
-    mit dem ersten Submit-Knopf.
+    Ohne --save wird nur berichtet (aktuelles Profil, Empfängeradresse und die
+    wichtigsten Einstellungen). Mit --save wird die Seite mit den vorhandenen
+    Werten abgeschickt und dabei Profilname (--name) und/oder Adresse (--email)
+    ersetzt — so laesst sich ein Profil klonen, ohne die Einstellungen von Hand
+    zu setzen.
     """
     user, password, _ = credentials_from_args(args)
     sess = Session()
     sess.get(BASE + LOGIN_PATH)
     home = do_login(sess, user, password)
-    p = parse(home)
-    target = next((f for f in p.forms if f["files"]), None)
-    if target is None:
-        Path(args.out).mkdir(parents=True, exist_ok=True)
-        (Path(args.out) / "startseite.html").write_bytes(home)
-        raise MakeBrailleError(
-            "Nach dem Login kein Formular mit Dateifeld gefunden — Startseite in "
-            f"{args.out}/startseite.html gesichert; Formular unbekannt."
-        )
+    form = _upload_form(home)
+    if form is None:
+        raise MakeBrailleError("Startseiten-Formular nicht gefunden.")
+    url = urllib.parse.urljoin(BASE + "/", form["action"] or LOGIN_PATH)
+    _, _, _, page = sess.post_multipart(url, _form_fields(form, mode="configuration"), {})
+    p = parse(page)
+    cform = next((f for f in p.forms if any(x["name"] == "email" for x in f["fields"])), None)
+    if cform is None:
+        out = Path(args.out) / "konfiguration.html"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(page)
+        raise MakeBrailleError(f"Konfigurationsformular nicht gefunden — Seite in {out} gesichert.")
+
+    prof = next((f for f in cform["fields"] if f["name"] == "uprofile_intrabitor"), None)
+    current = {f["name"]: f["value"] for f in cform["fields"]
+               if f["type"] not in ("file", "submit", "button", "image")}
+    sel = next((f for f in cform["fields"] if f["name"] == "uprofile_selector"), None)
+    print(f"Aktuelles Profil: {current.get('uprofile_intrabitor', '?')}")
+    print(f"Empfängeradresse: {current.get('email', '?')}")
+    for key in ("makebraille_out_format", "country", "user_profile", "text_format", "division", "merge_parts"):
+        val = next((f["value"] for f in cform["fields"]
+                    if f["name"] == key and f.get("checked")), None)
+        print(f"  {key}: {val}")
+    if sel:
+        print("  Profile: " + ", ".join(sel.get("options", [])))
+
+    if not args.save:
+        print("(nur gelesen — mit --save --name/--email wird ein Profil gespeichert)")
+        return 0
+
+    fields = dict(current)
+    if args.name:
+        fields["uprofile_intrabitor"] = args.name
+    if args.email:
+        fields["email"] = args.email
+    fields["mode"] = "save_configuration"
+    _, status, _, page = sess.post_multipart(url, fields, {})
+    out = Path(args.out) / "konfiguration-nach-save.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(page)
+    p2 = parse(page)
+    sel2 = next((f for f in p2.forms[0]["fields"] if f["name"] == "uprofile_selector"), None) if p2.forms else None
+    prof2 = next((f for f in p2.forms[0]["fields"] if f["name"] == "uprofile_intrabitor"), None) if p2.forms else None
+    print(f"gespeichert: HTTP {status}; Profil jetzt: {prof2['value'] if prof2 else '?'}")
+    if sel2:
+        print("  Profile: " + ", ".join(sel2.get("options", [])))
+    print(f"  Seite: {out}")
+    return 0
+
+
+def _summarize_html(body: bytes) -> str:
+    """Kurzbeschreibung einer HTML-Antwort (Titel + Links auf Dateien)."""
+    text = body.decode("utf-8", "replace")
+    p = parse(body)
+    lines = [f"Titel: {p.title.strip() or '(ohne Titel)'}"]
+    links = re.findall(r'href=["\']([^"\']+)["\']', text)
+    interesting = [l for l in links if re.search(r"\.(brf|txt|zip|xml|mxl|musicxml|capx|pdf)$", l, re.I)
+                   or "download" in l.lower()]
+    if interesting:
+        lines.append("Links: " + ", ".join(dict.fromkeys(interesting)))
+    return " | ".join(lines)
+
+
+def cmd_convert(args) -> int:
+    """Datei(en) hochladen und die Braille-Antwort sichern.
+
+    Der Upload benutzt das Formular der Startseite mit dem Dateifeld; alle
+    uebrigen Felder gehen mit ihren Vorgabewerten mit, der Submit-Knopf mit dem
+    Wert von --mode (Standard: create). Das Ausgabeprofil kommt aus
+    --profile (Select-Wert, z. B. Chor, Orgel, Orgel_Englisch).
+    """
+    user, password, _ = credentials_from_args(args)
+    sess = Session()
+    sess.get(BASE + LOGIN_PATH)
+    home = do_login(sess, user, password)
+    target = _upload_form(home)
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
+    if target is None:
+        (outdir / "startseite.html").write_bytes(home)
+        raise MakeBrailleError(
+            "Nach dem Login kein Formular mit Dateifeld gefunden — Startseite in "
+            f"{outdir}/startseite.html gesichert."
+        )
+    fields = _form_fields(target, mode=args.mode, profile=args.profile)
+    url = urllib.parse.urljoin(BASE + "/", target["action"] or LOGIN_PATH)
+    filefield = target["files"][0]["name"]
+    print(f"Upload nach {url} mit {filefield!r}, Felder: {', '.join(fields)}")
     rc = 0
     for path in args.files:
         src = Path(path)
         data = src.read_bytes()
-        fields = {f["name"]: f["value"] for f in target["fields"] if f["type"] not in ("file", "submit")}
-        if target["submits"]:
-            fields[target["submits"][0]["name"]] = target["submits"][0]["value"]
-        url = target["action"] or (BASE + LOGIN_PATH)
-        url = urllib.parse.urljoin(BASE + "/", url)
-        filefield = target["files"][0]["name"]
-        _, headers, body = sess.post_multipart(url, fields, {filefield: (src.name, data)})
+        _, status, headers, body = sess.post_multipart(url, fields, {filefield: (src.name, data)})
         ctype = (headers.get("Content-Type") or "").lower()
-        if "html" in ctype or b"<!DOCTYPE html" in body[:200].lower():
+        print(f"   HTTP {status}, {ctype or 'ohne Content-Type'}, {len(body)} Byte")
+        if "html" in ctype or body[:200].lower().lstrip().startswith(b"<!doctype html"):
             dest = outdir / (src.stem + ".antwort.html")
             dest.write_bytes(body)
-            print(f"{src.name}: HTML-Antwort gesichert -> {dest} ({len(body)} Byte)")
-            rc = 1
+            print(f"{src.name}: HTML-Antwort -> {dest} ({len(body)} Byte)")
+            print(f"   {_summarize_html(body)}")
+            rc = max(rc, 1)
         else:
             name = _filename_from_headers(headers) or (src.stem + ".brf")
             dest = outdir / name
             dest.write_bytes(body)
-            print(f"{src.name}: Braille gespeichert -> {dest} ({len(body)} Byte)")
+            print(f"{src.name}: Braille gespeichert -> {dest} ({len(body)} Byte, {ctype or 'ohne Typ'})")
     return rc
 
 
@@ -327,12 +472,22 @@ def main(argv: list[str] | None = None) -> int:
 
     subs.add_parser("check", help="Login testen", parents=[common])
     d = subs.add_parser("dump", help="Seite nach dem Login sichern", parents=[common])
-    d.add_argument("--url")
+    d.add_argument("--url", help="diese Seite laden statt der Startseite")
+    d.add_argument("--mode", help="Startseiten-Formular mit diesem mode-Wert abschicken")
+    d.add_argument("--profile", help="dabei uprofile_selector setzen (z. B. Chor)")
     d.add_argument("--name")
     c = subs.add_parser("convert", help="Datei(en) konvertieren", parents=[common])
     c.add_argument("files", nargs="+")
+    c.add_argument("--mode", default="create", help="Submit-Wert des Formulars (Standard: create)")
+    c.add_argument("--profile", help="uprofile_selector, z. B. Chor, Orgel, Orgel_Englisch")
+    cf = subs.add_parser("config", help="Konfigurationsprofil ansehen/ablegen", parents=[common])
+    cf.add_argument("--name", help="Profilname beim Speichern")
+    cf.add_argument("--email", help="Empfängeradresse beim Speichern")
+    cf.add_argument("--save", action="store_true", help="Seite abschicken (neues Profil/Änderung)")
     b = subs.add_parser("batch", help="Stapel (Glob-Muster)", parents=[common])
     b.add_argument("patterns", nargs="+")
+    b.add_argument("--mode", default="create")
+    b.add_argument("--profile")
 
     args = ap.parse_args(argv)
     # Optionen duerfen vor oder nach dem Unterbefehl stehen; SUPPRESS haelt die
@@ -347,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_dump(args)
         if args.cmd == "convert":
             return cmd_convert(args)
+        if args.cmd == "config":
+            return cmd_config(args)
         if args.cmd == "batch":
             files = [f for pat in args.patterns for f in sorted(glob.glob(pat))]
             if not files:

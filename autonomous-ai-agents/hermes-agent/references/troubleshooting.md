@@ -51,6 +51,46 @@ browser subprocess passthrough list, so `.env` reaches the harness. Verify:
 a `browser_exec` run whose daemon log (`~/.config/browser-harness/tmp/bu-*.log`)
 says `connecting to wss://...cdp.browser-use.com` = real cloud browser.
 
+### Local Chromium (`cloud_provider: local`) dies with `chrome-not-running`
+
+The daemon log (`~/.config/browser-harness/tmp/bu-<session>.log`) carries one line:
+`fatal: chrome-not-running: no supported Chromium-family browser is running`. The packaged
+browser is fine — it never got to run, because **Chrome's sandbox is unavailable on Ubuntu
+23.10+** (`kernel.apparmor_restrict_unprivileged_userns=1`): Chrome prints
+`FATAL:zygote_host_impl_linux.cc: No usable sandbox!` and exits before writing
+`DevToolsActivePort`.
+
+Reproduce without Hermes (the error text names the cause):
+```bash
+B=~/.hermes/tools/agent-browser-*/bin/agent-browser-linux-arm64
+AGENT_BROWSER_EXECUTABLE_PATH=$(ls -d ~/.hermes/tools/chromium-*/chrome-linux/chrome) \
+AGENT_BROWSER_SOCKET_DIR=$TMPDIR/ab-test $B --session t open https://example.com
+```
+Fixes, in order of preference:
+1. **`AGENT_BROWSER_ARGS=--no-sandbox` in `~/.hermes/.env`** (then `/restart`): reaches the
+   harness, survives `hermes update`, changes nothing system-wide. What Chrome itself suggests
+   for containers/VMs.
+2. **Relax the sysctl** (`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`, persist
+   via `/etc/sysctl.d/`): keeps `--no-sandbox` out of the picture but weakens a system-wide
+   protection for *every* program.
+3. **AppArmor profile for the Chromium binary** (`userns,`): version-proof no, because the binary
+   lives under `tools/chromium-<version>/` and the profile stops matching after `hermes update`.
+
+Facts that come with the switch:
+- `browser.cloud_provider` is **one global value per profile** (`local`, `browserbase`,
+  `browser-use`, `firecrawl`, `nous`, plugin names) — there is no per-task or per-session
+  switching. `hermes config set` writes it despite a `not a recognized config key` warning; a
+  change in `config.yaml` takes effect for the NEXT browser session without a gateway restart
+  (the cloud provider cache is keyed per scope), a change in `.env` needs `/restart`.
+- The only automatic coexistence is the **local sidecar**: with a cloud provider set, Hermes
+  spawns a local Chromium for private/LAN/localhost URLs and sends public URLs to the cloud
+  (`browser.auto_local_for_private_urls`, on by default). That does not help public sites that
+  need the vault.
+- `browser_vault_fill` fails with `Could not determine the current page origin` whenever the
+  page runs in a cloud browser: the fill runs against the local supervisor/CDP session. Any
+  vault-fill workflow therefore needs a `local` (or `/browser connect`) session.
+- Toggle back: `hermes config set browser.cloud_provider browser-use` (or `local`).
+
 ### Changes not taking effect
 - **Tools/skills:** `/reset` starts a new session with updated toolset
 - **Config changes:** In gateway: `/restart`. In CLI: exit and relaunch.

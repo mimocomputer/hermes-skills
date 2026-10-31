@@ -62,7 +62,23 @@ scripts/run.sh check                       # Login testen, Formulare der Startse
 scripts/run.sh dump --url /MakeBraille     # Seite nach dem Login als HTML sichern
 scripts/run.sh convert werk.musicxml --out out
 scripts/run.sh batch 'musicxml/*.musicxml' --out out
+scripts/run.sh config                      # aktives Profil, Empfängeradresse, Einstellungen
+scripts/run.sh config --save --name NEU --email ADRESSE   # Profil klonen/ändern
 ```
+
+`config` liest die Konfigurationsseite. Mit `--save` wird sie mit den **vorhandenen** Werten
+abgeschickt und dabei nur Profilname (`--name`) und/oder Empfängeradresse (`--email`) ersetzt —
+so entsteht aus einem bestehenden Profil ein Klon mit denselben Einstellungen. Achtung: die
+Seite gehört zum echten Konto, unabgeschickt (`--name`/`--email` ohne `--save`) liest sie nur.
+
+## Ergebnis: kommt per E-Mail
+
+MakeBraille hat **keinen Download in der Weboberfläche**: die fertige Datei wird automatisch an
+die Adresse geschickt, die im aktiven Profil steht (Absender `no-reply@dzblesen.de`, laut Hilfe
+innerhalb von 30 Minuten, bei Ausbleiben Spam-Ordner prüfen). Für einen unbeaufsichtigten
+Ablauf muss die Zieladresse also eine sein, die der Agent lesen kann (AgentMail-Postfach) — dann
+ist der Kreislauf Upload → Mail → Datei einlesen geschlossen. Ein Profil auf eine
+AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 
 Ohne Vault (andere Umgebung): `--user <name> --password-file <datei>`. Passwörter **nie** als
 Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
@@ -72,11 +88,16 @@ Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
 * **Geprüft:** Vault-Anlage über beide Wege, Vault-Auflösung, HTTP-Sitzung (Cookies), Login-POST
   auf `/MakeBraille` mit `login`/`passwd`/`mode=server_login` und die Fehlererkennung — eine
   falsche Kennung liefert wieder die Login-Seite, der Client meldet „Login abgelehnt".
-* **Noch zu bestätigen:** der Upload-Schritt. Er ist generisch gebaut (erstes Formular mit
-  Dateifeld, versteckte Felder werden übernommen) und wurde noch **nicht** gegen die echte
-  Seite nach dem Login geprüft. Erster Schritt mit echten Daten daher: `run.sh dump`, Formular
-  ansehen, dann `convert`; bei abweichendem Formular `cmd_convert` in `scripts/makebraille.py`
-  nachziehen.
+* **Upload:** der POST geht mit den aus der Startseite gelesenen Formularfeldern und dem
+  Dateifeld `file` (nimmt `.capx`, `.musicxml`, `.mxl`, `.mxml`, `.xml`, `.zip`; Profil/Schalter vorher per `switch_uprofile`) an `/MakeBraille`. Der
+  Dienst antwortet auch bei Annahme nur mit der Startseite — daraus lässt sich **keine**
+  Bestätigung ableiten. Beleg ist allein die Ergebnis-Mail; eine Konvertierung gilt erst als
+  erledigt, wenn die Datei da ist.
+* **Profil/Einstellungen** (Stand 30.10.2026, Konto julian.dreykorn): Profile `Chor`,
+  `Chor_Direktausgabe`, `Nach_Systemen_Fingersätze`, `Orgel`, `Orgel_Englisch`, `Profil1_20220206`;
+  Felder `makebraille_out_format` (z. B. `braille`), `country`, `user_profile`, `text_format`,
+  `division`, `merge_parts`. Formular-`mode`-Werte: `server_login`, `create`,
+  `switch_uprofile`, `delete_uprofile`, `configuration`, `part_excerpt_edit`.
 * **Kein Login = keine Auskunft:** Der Dienst beantwortet jeden Aufruf ohne gültige Sitzung mit
   HTTP 200 und der Login-Seite — deshalb prüft der Client den Inhalt, nicht den Statuscode.
 
@@ -88,6 +109,9 @@ Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
   `https://makebraille.dzblesen.de/MakeBraille` weiter — immer die Endadresse als Origin nehmen.
 * Der Vault-Eintrag gehört ins Standardprofil; in Cron-/Webhook-Sitzungen funktioniert er
   weiterhin (lokale Vault-Einträge brauchen keinen Prompt), in fremden Profilen nicht.
+* Wahlfelder (`radio`/`checkbox`) müssen **nur angehakt** mitgeschickt werden, sonst setzt ein
+  `--save` auf der Konfigurationsseite ungewollt die zuletzt gelesenen Werte. `FormParser` merkt
+  sich `checked`/`disabled`, `_form_fields` verwirft nicht angehakte Wahlfelder.
 * Neue Unterbefehle im Client brauchen `parents=[common]`, sonst lehnt argparse die globalen
   Optionen (`--out`, `--handle`, `--user`, `--password-file`) ab, sobald sie hinter dem
   Unterbefehl stehen (Optionen vor *und* nach dem Unterbefehl müssen funktionieren).
