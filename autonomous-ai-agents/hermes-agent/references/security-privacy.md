@@ -77,6 +77,18 @@ Routes that keep the value out of the conversation (verified):
 
 A login item is bound to scheme + host only (`normalize_origin` drops the path), e.g. `https://makebraille.dzblesen.de`; fills are refused on every other origin.
 
+**A helper script that must resolve a vault item itself** has to run in Hermes' runtime — the tools Python alone cannot `import cryptography`; `hermes_bootstrap` is what puts the install's dependency environment on `sys.path`:
+
+```python
+REPO = os.path.expanduser("~/.hermes/hermes-agent")
+sys.path.insert(0, REPO)
+os.environ.setdefault("HERMES_HOME", os.path.expanduser("~/.hermes"))
+import hermes_bootstrap  # noqa: F401
+from agent.vault_store import get_vault_store, normalize_origin
+```
+
+Launch such a script through a shim that globs `~/.hermes/tools/python-*/bin/python3` (the version in that path changes with updates), and resolve the secret inside the process: argv is world-visible in `ps`, so a password must never be passed as an argument.
+
 Pitfall: `browser_vault_fill` evaluates the page through Hermes' own supervisor (`tools/browser_supervisor`), which attaches to local and CDP-override browser sessions. On a host configured for a cloud backend (`browser.cloud_provider: browser-use`) the fill failed with "Could not determine the current page origin" even though `browser-use --doctor` showed the page attached and `browser_exec` could read it. Switching to `browser.cloud_provider: local` needs a Chromium the harness can attach to (`browser-use --doctor` reports `chrome-not-running` otherwise), and an already-running session keeps the old backend until it is recycled.
 
 ### Disabling the web/browser/image-gen tools

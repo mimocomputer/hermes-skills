@@ -20,6 +20,15 @@ gemeinfreie Werke sowie rechtmäßig genutzte urheberrechtlich geschützte Werke
 Sätze; dzb lesen wertet die Nutzung aus und freut sich über Rückmeldung
 (makebraille-support@dzblesen.de). Details siehe `references/makebraille-service.md`.
 
+## Vorgehen
+
+Für wiederkehrende Konvertierungen einen **Client + Skill** bauen und pflegen, nicht den Browser
+bedienen: der Login wandert einmal in den Vault, danach läuft alles headless (auch aus Cron- und
+Webhook-Sitzungen). Der Client gehört an den Vault, nicht an ein abgetipptes Passwort — jede
+weitere Konvertierung soll ohne Zutun und ohne Interaktion auskommen. Reicht das Webformular
+nicht, ist der Client die Stelle zum Nachziehen (`scripts/makebraille.py`), nicht ein zweiter
+Ad-hoc-Aufruf.
+
 ## Zugangsdaten
 
 Der Login liegt im Hermes-Credential-Vault, gebunden an die Origin
@@ -79,3 +88,6 @@ Kommandozeilenargument übergeben — sie stehen sonst in der Prozessliste.
   `https://makebraille.dzblesen.de/MakeBraille` weiter — immer die Endadresse als Origin nehmen.
 * Der Vault-Eintrag gehört ins Standardprofil; in Cron-/Webhook-Sitzungen funktioniert er
   weiterhin (lokale Vault-Einträge brauchen keinen Prompt), in fremden Profilen nicht.
+* Neue Unterbefehle im Client brauchen `parents=[common]`, sonst lehnt argparse die globalen
+  Optionen (`--out`, `--handle`, `--user`, `--password-file`) ab, sobald sie hinter dem
+  Unterbefehl stehen (Optionen vor *und* nach dem Unterbefehl müssen funktionieren).
