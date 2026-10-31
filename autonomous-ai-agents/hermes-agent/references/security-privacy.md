@@ -61,6 +61,24 @@ and confirm `--yolo` isn't baked into their launch alias or systemd unit.
 
 Some shell-hook integrations require explicit allowlisting before they fire. Managed via `~/.hermes/shell-hooks-allowlist.json` — prompted interactively the first time a hook wants to run.
 
+### Getting a password into the vault from a chat-only session
+
+Masked vault prompts (`browser_vault_save_login`, `browser_vault_enter_code`, `browser_vault_unlock`) exist only on interactive surfaces: the CLI/TUI (`cli.py`, `hermes_cli/cli_*_mixin.py`, `tui_gateway/agent_callbacks.py`) and the desktop app install the prompt callbacks. A gateway/chat session (Matrix, Telegram, …) installs none, so `can_prompt_here()` is false and those tools answer `prompt_unavailable`. Whatever the user types in chat is an ordinary message and lands in model context, the session DB and the platform server; redaction can mask a value it already knows, not un-see one. Never invite a password in chat — say so and offer a route below instead.
+
+Routes that keep the value out of the conversation (verified):
+
+- One masked prompt on the user's own terminal — the piped lines answer the *visible* questions, the two `getpass` prompts (password, optional TOTP seed) read from `/dev/tty`:
+  ```bash
+  printf 'login\n<label>\n<scheme://host>\n<email|phone|username>\n<identifier>\n' | hermes vault add
+  ```
+  With no TTY at all (agent-run, headless) `getpass` falls back to stdin with a warning, which is how an agent can import a credential file whose value it must never print.
+- Desktop app → Settings → Passwords & Logins → Add.
+- `hermes vault list` shows handles + metadata (label, origin, identifier) and is safe to call from a chat session; local items need no unlock prompt to be listed or filled.
+
+A login item is bound to scheme + host only (`normalize_origin` drops the path), e.g. `https://makebraille.dzblesen.de`; fills are refused on every other origin.
+
+Pitfall: `browser_vault_fill` evaluates the page through Hermes' own supervisor (`tools/browser_supervisor`), which attaches to local and CDP-override browser sessions. On a host configured for a cloud backend (`browser.cloud_provider: browser-use`) the fill failed with "Could not determine the current page origin" even though `browser-use --doctor` showed the page attached and `browser_exec` could read it. Switching to `browser.cloud_provider: local` needs a Chromium the harness can attach to (`browser-use --doctor` reports `chrome-not-running` otherwise), and an already-running session keeps the old backend until it is recycled.
+
 ### Disabling the web/browser/image-gen tools
 
 To keep the model away from network or media tools entirely, open `hermes tools` and toggle per-platform. Takes effect on next session (`/reset`). See `references/configuration.md` for the toolset list.
