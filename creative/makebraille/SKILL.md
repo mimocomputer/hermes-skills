@@ -108,6 +108,7 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 * **Profilwechsel ist ein eigener Schritt** (`mode=switch_uprofile`) und muss vor dem Upload
   passieren; danach prüfen (das aktiv gewählte `<option ... selected>`); ein
   `uprofile_selector` im Upload-POST allein wechselt das Profil nicht.
+* **Leere Antwort ist häufig — wiederholen, nicht aufgeben** (gemessen 01.11.2026: beide Uploads mit dem Profil `Chor` kamen zuerst als HTTP 200 mit 0 Byte zurück, ~20 s später im zweiten Anlauf als Startseite mit „still being converted" = angenommen). Der Wiederholungsversuch kann eine zweite Ergebnis-Mail erzeugen; das ist hinnehmbar, aber dem Nutzer sagen.
 * **Drei Antwortformen auf einen Upload:** (a) Danke-Seite „Your converted music Braille file
   will be sent to: <adresse>." — akzeptiert, nennt die Zieladresse (beste Bestätigung),
   (b) Startseite mit „Your file is still being converted, please wait." — angenommen,

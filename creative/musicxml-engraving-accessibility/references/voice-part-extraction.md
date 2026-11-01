@@ -28,21 +28,57 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
   staff is voice 5 only for T. 39–62 (print says "TENOR und BASS, unis."), so a plain voice-6
   extraction leaves the bass silent for 24 bars. Rule: if the target voice has no pitched note
   in the measure and a same-staff sibling has, take the sibling's line. Empty *staff* (all
-  voices) = genuine tacet = rests.
+  voices) = genuine tacet = rests. The unison line can also live on the *other* staff of the
+  part (measured: Christus Immanuel — the men's line occupies the **bass** staff for T. 9–21,
+  so a tenor extract built from the tenor staff alone opens with 21 bars of whole-measure rests
+  and the tenor's sung beginning is simply gone, while the split-off bass parts carry it).
+  Always check each part's **first sounding measure** against the print.
 * **Shared choral text.** One printed text line often hangs syllable-by-syllable on *different*
   voices of the same staff (measured in two works: the two voices of a T/B staff **never**
   shared a lyric onset). Adopt the sibling syllable at the **same onset**
-  for notes of the target voice that carry none, **but never** (a) across staves — that imports
-  the S/A text into a T/B part (Sternen-Carol's two rows are antiphonal, not shared) — and
-  (b) while the target's previous syllable is still sounding (track `lyric_end = onset+duration`
-  of the last lyric-bearing note and require `onset >= lyric_end`). Only for single-voice output
+  for notes of the target voice that carry none, but **never** while the target's previous
+  syllable is still sounding (track `lyric_end = onset+duration` of the last lyric-bearing note
+  and require `onset >= lyric_end`). Only for single-voice output
   parts: in a two-voice (divisi) part the voices would label each other.
+* **Borrowing text across staves: the print decides, and exact onset+duration equality is the
+  discriminator.** Where a system prints **one** lyric row for SA and TB (the shared-line case),
+  the lower staff is wordless in the source, and refusing the cross-staff copy there ships a
+  part with no words in whole sections. Copy the upper row onto the lower staff's sounding notes
+  only where **onset AND notated duration are identical**; staggered (antiphonal) lower lines
+  never match exactly on every note, so the test separates the two cases without judgement, and
+  nothing is borrowed onto rests or under a different vowel passage. Verify two or three passages
+  on the print; where the print's own second text row sits under the lower staff, that row wins.
+  (An earlier note on this work called the two rows antiphonal — the re-measured print shows one
+  shared row; trust the re-measured print over the older note.)
 * **Divisi belongs to the singer-group level.** A staff that carries two real simultaneous voices (measured: Christus Immanuel bass, v13 20 notes + v14 214; Rutter *The Lord bless you*, m. 45 men in two voices) is a divisi of that section. Deliver the two lines as two addressable parts (Tenor 1 / Tenor 2 with the same music where they agree, per the user's convention) rather than as voice 1 / voice 2 of a single staff; if a finished delivery still carries a second voice (e.g. Rutter 09 m. 45), report it and offer the split, and do not lyric-borrow between them.
 * **Rest-plus-note in one measure is an artefact, not a divisi.** Measured (Christmas Lullaby,
   m. 49/53): a whole-measure rest in voice 1 beside the sounding note in voice 2, in *both* the
   tenor and the bass file. The measure is not polyphonic — the note is the content. Normalise by
   putting the sounding line into voice 1 and dropping the phantom rest (it disappears anyway,
   because the note fills the measure), and name the measures in the report.
+
+## Completing a part the source assigned to the wrong staff, or left wordless
+
+Two defects that every standard gate below passes through:
+
+* **Whose line is it?** A source can carry the men's line on the *bass* staff for a unison
+  passage whose own label reads "TENOR und BAß unis.", so a split driven by staff/register hands
+  the passage to the bass parts and gives the tenor nothing. Tie-breakers, cheapest first: (1)
+  the printed labels — a system marked "T. B." at one staff means two voices on that staff; (2)
+  the **independent OMR draft's** part structure: a line the OMR engine ends as its own part and
+  that continues into the known melody of the next phrase is that singer, and that continuity
+  across the phrase boundary is the decisive evidence; (3) register of the two lines where the
+  source itself switches to two staff voices. Rebuild the extract from the file that actually
+  carries the line — never hand-copy notes between extracts.
+* **A part with no syllables at all.** The lyric checks (hunspell word audit, G12 hyphenation
+  audit, note-text coverage) all test material that is *present*; a wordless staff passes every
+  one of them. Run a **syllable census per staff and measure** (sounding notes vs. notes carrying
+  a syllable, per row) and compare the wordless stretches against the print — that is the only
+  check that finds missing text.
+* **Document every completion in the report.** A filled passage is not a silent repair: name the
+  measure range and the file it came from, and append it as a dated addendum to the existing
+  report rather than rewriting it. Route corrections back through the extract builder so the
+  addendum text is generated instead of typed by hand.
 
 ## Delivery form for an extract set
 
@@ -123,5 +159,8 @@ its own dated pass on the existing delivery, not as a silent rewrite:
    Expect verse numbers to be renumbered on the roundtrip when the part uses non-contiguous
    verses (e.g. 1 and 4) — that is a MuseScore import artefact, not an extraction error.
 4. Render 4–6 of the parts to PDF and read them against the print (noteheads, accidentals,
-   unison/divisi spots, syllable placement). This catches what the clock check cannot.
+   unison/divisi spots, syllable placement), plus the **first sounding measure of every part**
+   and the syllable census per staff. This catches what the clock check cannot: a part that is
+   clock-perfect and still empty where a unison line sat on the other staff, or a staff that
+   carries no text at all.
 5. Upload and compare `getcontentlength` against the local byte size for every file.
