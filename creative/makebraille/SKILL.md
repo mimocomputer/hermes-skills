@@ -90,6 +90,7 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
   `no-reply@dzblesen.de` an? Testmail vom Nutzer-Gmail an das Postfach klärt die zweite Frage;
   sonst makebraille-support@dzblesen.de fragen. Bis das geklärt ist, bleibt Julians `Chor`
   (Zustellung an sein Gmail, nachweislich zuverlässig) der sichere Weg.
+* **Zustellung an Julians Gmail funktioniert (bestätigt 01.11.2026):** mit dem unveränderten Profil `Chor` hochgeladen, Ergebnis-Mails an `dreykorn.julian@gmail.com` kamen an (je Datei eine). Für Julians eigene Auslieferung also `Chor` verwenden, nicht umstellen.
 * **Klon steht bereit:** Profil `Hermes-AgentMail` im Konto (Kopie von `Chor`, Empfänger
   `mimo@agentmail.to`, Stand 31.10.2026 feldweise geprüft: nur Adresse und Profilname weichen von
   `Chor` ab). Für eigene Läufe `--profile Hermes-AgentMail` setzen; `Chor` bleibt Julians Profil.
@@ -108,7 +109,7 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 * **Profilwechsel ist ein eigener Schritt** (`mode=switch_uprofile`) und muss vor dem Upload
   passieren; danach prüfen (das aktiv gewählte `<option ... selected>`); ein
   `uprofile_selector` im Upload-POST allein wechselt das Profil nicht.
-* **Leere Antwort ist häufig — wiederholen, nicht aufgeben** (gemessen 01.11.2026: beide Uploads mit dem Profil `Chor` kamen zuerst als HTTP 200 mit 0 Byte zurück, ~20 s später im zweiten Anlauf als Startseite mit „still being converted" = angenommen). Der Wiederholungsversuch kann eine zweite Ergebnis-Mail erzeugen; das ist hinnehmbar, aber dem Nutzer sagen.
+* **Leere Antwort (HTTP 200, 0 Byte) ist die häufigste Form — nicht hektisch wiederholen** (gemessen 01.11.2026, Profil `Chor`: von fünf Uploads kamen vier leer zurück, nur einer als Startseite mit „still being converted"). Der leere Body heißt sehr wahrscheinlich nur, dass die Antwort verloren ging: der POST war gesendet, und die Konvertierung lief (Julian meldete am 01.11.2026 für zwei hochgeladene Dateien **zwei** Ergebnis-Mails, obwohl ein Versuch leer geantwortet hatte; die Zuordnung — je Datei eine oder dieselbe zweimal — war noch offen). Also: höchstens **einmal** wiederholen, dem Nutzer sagen, dass ein bis zwei Mails ankommen können, und den Eingang als Beleg abwarten — die Weboberfläche bietet keine Job-Liste, der Posteingang ist die einzige Prüfung.
 * **Drei Antwortformen auf einen Upload:** (a) Danke-Seite „Your converted music Braille file
   will be sent to: <adresse>." — akzeptiert, nennt die Zieladresse (beste Bestätigung),
   (b) Startseite mit „Your file is still being converted, please wait." — angenommen,
