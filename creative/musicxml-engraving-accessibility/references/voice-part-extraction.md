@@ -164,3 +164,37 @@ its own dated pass on the existing delivery, not as a silent rewrite:
    clock-perfect and still empty where a unison line sat on the other staff, or a staff that
    carries no text at all.
 5. Upload and compare `getcontentlength` against the local byte size for every file.
+
+## Adjudicating simultaneity and clefs at the print
+
+A delivered extract can be clock-perfect, XSD-valid and still sing two notes the print sounds
+together, or sing a whole passage an octave high. Both are settled by reading the print, not the
+file, and both need a discriminator that is objective at scan resolution.
+
+* **Chord or two voices? Count stems, not noteheads.** Two noteheads a third apart under **one**
+  stem, with augmentation dots at different heights, is a **dotted chord in one voice** — one
+  singer sounds both pitches. Two stems, one up and one down, is **two voices** (a real divisi).
+  The OMR is unreliable in both directions: measured, it read a chord where the print sets a
+  sequence (and the delivered edition consequently sang the two pitches one after the other
+  instead of together), and it also lost the second notehead of a printed chord elsewhere.
+  Neither its chord nor its single-voice reading is evidence for or against a chord.
+* **Measure head mass, not the glyph.** A doubled notehead reads as roughly twice the pixel mass
+  of a single one at the same size — the cheap objective test for "two heads stacked" in a dense
+  passage, and the way to tell a chord from a single head at the limit of legibility.
+* **The `8` that is not an octave sign.** At scan resolution a figure-8 blob is either two
+  stacked noteheads (the chord above) or one notehead crossed by a staff line. Resolve it with the
+  stem count and a tighter crop; never write an octave clef on the strength of the glyph.
+* **Octave clefs are per staff and per passage.** A treble clef with a small 8 below marks a
+  **tenor** line sounding an octave below its written pitch (`clef-octave-change`), not a bass
+  clef and not a transposition; keep it, never "normalise" it. Census the clef of **every** staff
+  at the start *and* watch for mid-piece clef changes. A part written a whole octave high against
+  the print is this defect. Then counter-check the rest of the file so the answer is complete: a
+  pitch-multiset comparison against the OMR draft and a second independent witness (e.g. a
+  published reduction/MIDI) shows whether the shift is systematic — with noisy witnesses the only
+  defensible claim is "no systematic octave shift", and it should be worded that way.
+* **When the scan is not safely legible, change nothing.** Record the measure and page as an open
+  item with what the geometry suggests and why it cannot be settled. A guessed pitch in the file
+  is worse than a named gap.
+* **Answer the blast-radius question per class, not per fix.** For a confirmed defect, enumerate
+  its class (octave clef, simultaneity, missing text, divisi), check every part for it, and report
+  which parts are affected and which are provably not, naming the evidence for each.
