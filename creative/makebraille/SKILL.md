@@ -113,7 +113,7 @@ AgentMail-Adresse umzustellen ändert nur dieses Profil, nicht die eigenen.
 * **Drei Antwortformen auf einen Upload:** (a) Danke-Seite „Your converted music Braille file
   will be sent to: <adresse>." — akzeptiert, nennt die Zieladresse (beste Bestätigung),
   (b) Startseite mit „Your file is still being converted, please wait." — angenommen,
-  (c) leere Antwort (HTTP 200, 0 Byte) — keine Bestätigung, Upload wiederholen. Welche Form
+  (c) leere Antwort (HTTP 200, 0 Byte) — häufigster Fall, aber NICHT automatisch wiederholen: jeder POST kann eine eigene Ergebnis-Mail erzeugen (Julian bekam dieselbe Mail zweimal). Nutzer informieren, nur auf seine Rückmeldung erneut senden. Welche Form
   kommt, hängt offenbar vom Serverzustand ab, **nicht** vom Profil: `Chor` und
   `Chor_Direktausgabe` haben feldweise identische Einstellungen (44/46 gleich, nur der Name
   differiert) und lieferten dennoch beide Formen.

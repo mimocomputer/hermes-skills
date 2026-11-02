@@ -501,7 +501,8 @@ def cmd_convert(args) -> int:
             dest.write_bytes(body)
             print(f"{src.name}: Braille gespeichert -> {dest} ({len(body)} Byte, {ctype or 'ohne Typ'})")
         else:
-            print(f"{src.name}: leere Antwort (HTTP {status}) — keine Bestaetigung, Upload wiederholen.")
+            print(f"{src.name}: leere Antwort (HTTP {status}) — keine Bestaetigung. NICHT wiederholen: "
+                  f"jeder POST kann eine eigene Ergebnis-Mail erzeugen. Nutzer informieren.")
             rc = max(rc, 2)
     return rc
 
