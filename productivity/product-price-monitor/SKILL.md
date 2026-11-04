@@ -23,7 +23,7 @@ Monitor a concrete purchasable item and alert on a normalized all-in price or av
 - "Track ticket/listing availability."
 - A cron tick fires for an existing price watch (steps 4-6).
 
-Don't use for: one-off "what does this cost right now" lookups (use `web_search`/`web_extract` directly).
+Don't use for: one-off "what does this cost right now" lookups (use `web_search`/`web_extract` directly), or for valuing something the user wants to sell (`used-market-valuation`).
 
 ## Procedure — Setup (foreground, once)
 
