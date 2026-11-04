@@ -69,6 +69,9 @@ When a condition is met, the alert includes: exact item/variant, observed all-in
 - Overwriting a last-known-good value with an error page.
 - Polling aggressively enough to trigger blocking or violate site terms.
 - Scheduling before a single foreground fetch has succeeded.
+- AliExpress item pages: the per-variant stock number lives only in the DOM quantity widget (`[class*="quantity--info"]` → text like `76 verfügbar`); the schema.org JSON-LD offer carries only listing-level `InStock`. Select the variant first, then read the quantity field, and assert the selected variant label still matches the contract before trusting the number.
+- A monitor-gated tick whose check script can fail silently: if the script's output stays byte-identical across failures, the agent never wakes. Make the failure path emit an incrementing `fails=N` so a persistent outage differs from the previous tick.
+- When a watch needs its cron prompt revised, `cronjob(action='update', prompt=...)` can reject long prompts with a tool-argument JSON parse error; recreate the job instead (create accepts long prompts, then remove the old one) and confirm the new job id with `list`.
 
 ## Verification
 
