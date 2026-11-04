@@ -11,7 +11,7 @@ Domain notes for pricing a braille display (Braillezeile), notepad, or similar H
 
 - **pinwand-online.de** — the community board for blind and visually impaired sellers. Ads are deleted after roughly three weeks, so history only exists in the Wayback Machine (see `archived-classifieds-harvest.md`). Free to post, exactly the right audience.
 - **kleinanzeigen.de** — larger reach, but braille listings are rare (a handful nationally). Worth cross-posting; search both the product name and the generic term (`Braillezeile`) plus the misspelled variants.
-- **Dealer list prices** for the new-price anchor: Papenmeier Rehatechnik, COM-M, IPD, fluSoft, Help Tech, Reha-Fachhändler, medical/B2B marketplaces (medicalexpo). Manufacturer sites often publish no price at all.
+- **Dealer list prices** for the new-price anchor — Papenmeier-specific: Papenmeier Rehatechnik (direct, Schwerte; product pages publish no price), COM-M Communication + Marketing (Herrischried; publishes list prices, e.g. Braillex Live 40 ≈ 6,188 €), bf-bildung.de. General blind-tech dealers (IPD Kalletal, fluSoft Dresden, Help Tech) sell Focus/BrailleSense/Seika/Activator — **not** Papenmeier, so do not cite them as Papenmeier price anchors. Remaining-stock Technikhändler (e.g. piospartslap.de) occasionally list a single Papenmeier display cheaply (observed: EL 80C 1,299 €, condition unstated). Manufacturer sites often publish no price at all.
 - **Dealer trade-in / Ankauf** — some Reha-Händler handle used devices; ask directly rather than assuming.
 
 ## Model traps (get these right before pricing)
@@ -37,7 +37,8 @@ Domain notes for pricing a braille display (Braillezeile), notepad, or similar H
 ## What raises / lowers the band
 
 - **Raises:** remaining warranty from the invoice, original packaging, complete accessories (case, charger, USB cable, manual), confirmed all cells working, "Privatbesitz, nicht kassenfinanziert", insured shipping or pickup.
-- **Lowers:** a successor model on the market (Papenmeier brought a newer 40-cell with braille input, which pushes used Live prices down), USB-only or no input keyboard, missing accessories/invoice, and a seller who needs the money quickly.
+- **Lowers:** a successor model on the market (Papenmeier's **BRAILLEX Flow+ 40** — 40 cells, braille input, 6-key navigation bar, USB-C, HID/driver-free, onboard text editor; shown from SightCity 10/2025 and still absent from Papenmeier's own Braillezeilen overview as of late 2026 — pushes used Live prices down), USB-only or no input keyboard, missing accessories/invoice, and a seller who needs the money quickly.
+- **Age exception:** a Live that is years old but barely used is still an old device — calendar ageing of the battery and the expired warranty put it below the near-new band even if all cells are perfect; ask for the measured battery runtime and put it in the listing.
 - Sellers conventionally exclude Sachmängelhaftung ("Privatverkauf, keine Garantie oder Rücknahme"); state the real condition honestly instead of leaning on that clause.
 
 ## Ownership caveat
