@@ -91,6 +91,24 @@ Launch such a script through a shim that globs `~/.hermes/tools/python-*/bin/pyt
 
 Pitfall: `browser_vault_fill` evaluates the page through Hermes' own supervisor (`tools/browser_supervisor`), which attaches to local and CDP-override browser sessions. On a host configured for a cloud backend (`browser.cloud_provider: browser-use`) the fill failed with "Could not determine the current page origin" even though `browser-use --doctor` showed the page attached and `browser_exec` could read it. Switching to `browser.cloud_provider: local` needs a Chromium the harness can attach to (`browser-use --doctor` reports `chrome-not-running` otherwise), and an already-running session keeps the old backend until it is recycled.
 
+### Secrets that a service (not a browser page) must read
+
+The vault is a browser-fill store: `browser_vault_fill` injects a value into the exact origin and nothing else can read it back — a daemon or CLI that needs a password at every start cannot use it. Order of preference for those:
+
+1. A `0600` env file the service sources, written by the user:
+   ```bash
+   install -m600 /dev/stdin "$HERMES_HOME/<service>.env" <<'EOF'
+   SERVICE_USER=...
+   SERVICE_PASSWORD=...
+   EOF
+   ```
+2. `secrets.command` in `config.yaml` (helper printing `KEY=VALUE` lines) plus `terminal.env_passthrough: [VAR, …]`, so agent-run commands get the value while it never enters the transcript.
+3. Resolve in-process from the vault via the `hermes_bootstrap` snippet above — only for code running inside Hermes' runtime, and never with the value on argv (`ps` is world-visible).
+
+**Reading a credential a provider shows only on a page** (SIP passwords, portal API tokens): the `browser_exec` Python runs on the host with the profile's filesystem access, so read the field with `js()` and write it straight into the `0600` file in the same call, printing only non-secret fields (server, username, number, length). The value then never enters the conversation, its logs, or the session DB. Never route it through `fill_input` or chat.
+
+**Re-logging into a portal whose 2FA is an e-mail/SMS code, from a gateway session:** the code prompt is unavailable here (`prompt_unavailable`, above). Have the user complete that login **once** on an interactive surface and tick the site's "trust this device" box — the trusted cookie lands in the gateway's browser profile, so later logins need only `browser_vault_fill`. Confirm the cookie/profile really persists (navigate back in a later call and check) before promising it.
+
 ### Disabling the web/browser/image-gen tools
 
 To keep the model away from network or media tools entirely, open `hermes tools` and toggle per-platform. Takes effect on next session (`/reset`). See `references/configuration.md` for the toolset list.
