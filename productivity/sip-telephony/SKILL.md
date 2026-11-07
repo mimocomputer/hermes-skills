@@ -83,8 +83,19 @@ See `references/providers-and-platforms.md` for the capability matrix with sourc
 
 Generate prompts/answers with `text_to_speech`, transcribe recordings with the configured STT provider, expose the call as a small CLI or skill script (`call <number> <text>`), and confirm with the user before dialing. Emergency numbers never.
 
+### 7. Local stack on the agent host (measured, Asterisk 22 / Debian-Ubuntu ARM)
+
+`apt-get install -y asterisk` gives a working PJSIP stack; no sound card needed for `Playback`. Two traps cost most of the time:
+
+- **pjlib's bundled resolver fails on zones with 12 A-records and no AAAA**: `pjsip_resolver.c: Resolution completed - 0 viable targets` → registration ends as `503 No answer record in the DNS response (PJLIB_UTIL_EDNSNOANSWERREC)`. `dig` resolves the same name fine; only Asterisk's resolver is broken. Fix: pin one SRV/A target by IP in the config generator (`dig +short SRV _sip._udp.<host>` → first target → its first A record) and use that IP in `server_uri` and the aor `contact`, keeping the hostname in `client_uri`/`from_domain`. Regenerate with a script that reads `sip.env` so the password never passes through stdout.
+- **Behind NAT** (Oracle: private `10.x` + 1:1 public IP) set `external_media_address` / `external_signaling_address` to the public IP and list `local_net` for the private ranges, plus `direct_media=no`, `rtp_symmetric=yes`, `force_rport=yes`, `rewrite_contact=yes`.
+- Enable a text SIP trace only when needed: uncomment `full.log => ...debug,verbose...` in `/etc/asterisk/logger.conf`, `logger reload`, `pjsip set logger on`, then grep `/var/log/asterisk/full.log`. `pjsip show registrations` gives the one-line status (`Registered (exp. 1545s)` / `Rejected`).
+- Test calls headless with `asterisk -rx "channel originate PJSIP/<dest>@<endpoint> extension s@<context>"`; the dialplan plays the announcement. Read the outcome from the log line `Response is <code>` instead of parsing the CLI output.
+- A mature stack also tells the *provider's* verdict apart from your own signalling: `407` before/after `403` means auth is fine and the **account policy** refuses (`403 Forbidden`, `Content-Length: 0`, no reason phrase). Expect 403 when the SIP user has no outbound right and stop probing dial formats — see the next pitfall.
+
 ## Pitfalls
 
+- **A `403 Forbidden` on every outbound INVITE is an account-permission finding, not a codec/CLI/format problem.** Measure a small matrix (from_user with/without `+`, national vs E.164, landline vs mobile vs bogus destination) before concluding: if *all* of them answer 403 within milliseconds, the provider's softswitch is refusing the SIP user wholesale. On a hosted cloud-PBX product the SIP user is a *phone line* of that PBX, and Fonial separates inbound-number rights from **outbound-number rights**: `Mitarbeiter verwalten` → the employee profile has its own tab for `Ausgehende Rufnummer` ("erlaubt dem Mitarbeiter, die Rufnummer ausgehend in seinem IP-Endgerät zu setzen"). Only the account owner can grant that. On a *Trunking* account the equivalent step is `Rufnummern` → select number → `SIP-Benutzer zuordnen`. Ask for the missing grant, do not keep re-dialling.
 - Hosted voice-AI platforms never REGISTER — check step 4 before recommending one.
 - Twilio cannot import a foreign number: BYOC origination explicitly rejects carrier credential auth (the carrier must trust Twilio's IPs), so "bring my SIP number to Twilio" is a dead end. A number verified as **Verified Caller ID** only gives *outbound voice* with that number as caller ID (voice-only, per account, best effort in some countries); SMS senders always require a Twilio number.
 - Vapi's inbound gateways accept a numeric IPv4 address only; a DNS name works outbound but not inbound.
