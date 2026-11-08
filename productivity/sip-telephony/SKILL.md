@@ -118,6 +118,17 @@ Gotchas that cost a round of debugging:
 
   Only then does the INVITE go out as `From: <sip:NUMBER@domain>` with no display name — matching what a manually built client sends, and what the carrier presents as the CLIP number. (`Archive: yes` keeps a copy in `outgoing_done` for debugging; `SetVar` is the clean way to pass per-call parameters into the dialplan.)
 - `channel originate` also returns when the callee answers, while the dialplan keeps running — poll `core show channels` for the endpoint to appear *and* disappear before reading recordings or CDRs.
+- Deliver the call file with `cp` + `chown <asterisk-user>` + `chmod 640`; `install -o/-g` into the spool intermittently fails with `install: metadata error`, leaving an unreadable file that `pbx_spool` deletes with a `Permission denied` warning, so the call silently never happens.
+- Reading the destination back out of an archived call file (`outgoing_done/`, `Archive: yes`) is a handy way to derive format variants (E.164 / `00…` / national) without retyping the number.
+
+### 7c. `403` vs `480` on outgoing calls — separate the layers before touching config
+
+Two different causes produced two different failures on the same working account:
+
+- `407` then **`403 Forbidden`, `Content-Length: 0`, `User-Agent: FreeSWITCH`** → *our* config: the pinned IP had leaked into the Request-URI. Keep the hostname in `contact`/`client_uri`/R-URI and the IP only in `outbound_proxy`.
+- `407` then `100 Trying` then **`480 Temporarily Unavailable`, `Reason: Q.850;cause=19;text="NO_ANSWER"`, `X-Hangup-Reason: Target not found` within a second** → *provider side*: the switch has no route for that destination. Festnetz destinations from the same account worked in the same minute while mobile numbers failed in E.164, `00…` and national form alike — that is an ask-the-user/ask-the-provider problem, not a stack problem.
+
+A 480 that arrives within a second, carrying a `To` tag and `X-Hangup-Reason`, was never a rejection of our signalling: the INVITE was accepted and authenticated. Verify with a second destination before rewriting dialplan or From headers.
 
 ### 7b. Local stack on the agent host (measured, Asterisk 22 / Debian-Ubuntu ARM)
 
