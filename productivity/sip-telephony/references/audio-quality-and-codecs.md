@@ -7,6 +7,14 @@
 - Keep `opus` in the endpoint's `allow=` list anyway: it costs nothing (the provider ignores what it cannot use) and it is the right codec for direct SIP peers — WebRTC clients, a media bridge, or OpenAI's leg. Make the list env-driven (`FO_CODECS`, default `opus,g722,ulaw,alaw`) so an experiment does not need a code edit.
 - Verify the negotiated codec from the log, not from hope: `core show channels` / `Topology: … (g722)` lines in `full.log`, and `Unable to open …` errors when the prompt cannot be delivered.
 
+## AI telephony: the 8 kHz ceiling is a module limit, not the trunk's
+
+In both directions for a live AI conversation, the installed `res_audiosocket` 22.5.2 takes
+only frame type `0x10`, which it reads as 8 kHz — 16 kHz data tagged `0x10` plays at half
+speed (deep voice). For 16 kHz both ways use the `UnicastRTP` channel driver with
+`c(slin16)` instead (dial syntax, L16 byte order and the spurious padding bit are measured
+in `realtime-bridge.md`, section "Transport B"). The trunk's own ceiling stays G.722.
+
 ## Prompt files: install raw slin16, not a 16 kHz WAV
 
 A 16 kHz `.wav` in `sounds/custom/` produced a **silent, instantly hung-up call**: on a G.722 channel Asterisk looks for `custom/<name>.g722` first, gives up instead of falling back, logs `Unable to open custom/<name> (format (g722)): No such file or directory` + `Playback failed`, and the CDR shows `ANSWERED` with `billsec 0.001`.

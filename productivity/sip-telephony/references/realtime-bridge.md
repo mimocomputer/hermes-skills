@@ -54,6 +54,43 @@ pruefenden Typcode senden, auf der Asterisk-Seite aufnehmen, im Aufnahme-PCM die
 ueber Nulldurchgaenge messen. 1000 Hz = Rate stimmt, 500 Hz = halbe Rate. Messung hier:
 1 kHz-Nutzlast als 8 kHz + Typ `0x10` → **1000 Hz / 7,0 s Aufnahme** (richtig).
 
+## Transport B: UnicastRTP — 16 kHz in BEIDE Richtungen (bevorzugt)
+
+Umgeht die 8-kHz-Grenze des installierten res_audiosocket, ohne ein Modul zu bauen:
+
+```
+[ai]
+exten => s,1,Answer()
+ same => n,Dial(UnicastRTP/127.0.0.1:9094/c(slin16)p(118),3600,d)
+```
+
+`chan_rtp` (Kanal-Treiber, im Debian-Paket vorhanden) versteht die Optionen `c(<codec>)`,
+`p(<96-127>)` (dynamischer Payload-Typ fuer Senden UND Empfangen), `e(<engine>)`, `g`
+(RTP-Glue) — Quelltext `channels/chan_rtp.c`, `AST_APP_OPTIONS(unicast_rtp_options …)`.
+
+Gemessenes Wire-Format (der Teil, an dem man ohne Analyse scheitert):
+
+- Jedes UDP-Paket **652 Byte** = 12 Byte RTP-Header + **640 Byte Nutzlast** (20 ms slin16
+  @ 16 kHz), PT 118, Zeitstempel **+320** pro Paket.
+- **Die Nutzlast ist big endian (L16, Netzwerk-Byte-Order).** Wie little endian gelesen
+  klingt sie wie Rauschen (Schwerpunkt ~4 kHz, RMS ~17k, Nulldurchgaenge ~7000/s); als
+  big endian gelesen transkribiert sie **wortgleich** (Schwerpunkt 1,4-2,7 kHz). Beim
+  Senden ebenso zurueckwandeln (`np.frombuffer(frame,'<i2').astype('>i2')`), sonst hoert
+  die Gegenseite Rauschen.
+- **Das Padding-Bit (0x20) im zweiten Header-Byte wird ohne echte Fuellbytes gesetzt**
+  (b1 = 0x76 = 118|0x20). Wer es „korrekt" auswertet (`payload[-1]` = Anzahl), verwirft
+  pro Paket ~40 % der Nutzlast: unvollstaendige Saetze, Whisper-Halluzinationen.
+  Pad-Bit ignorieren.
+- **Asterisk sendet erst, wenn der Schenkel Audio hat** — im Testaufbau ohne `Playback`
+  kommt gar kein RTP an (leere Aufnahme, keine Bridge-Verbindung): fuer Tests vorspielen.
+- **Watchdog noetig:** ohne eingehendes RTP die Bruecke beenden (z. B. 10 s), sonst bleibt
+  die WebSocket-Sitzung offen (Kosten) und die naechste Verbindung findet veralteten
+  Zustand vor. `comfort_silence` (20-ms-Nullframes als stetiger Takt) darf nicht als
+  Antwort-Audio gezaehlt oder in den Dump geschrieben werden.
+
+Nutzen: 16 kHz in beide Richtungen — genau die Obergrenze, die die Fonjal-Strecke ohnehin
+hat (G.722 = 16 kHz, Trunk kann kein Opus).
+
 ## Die stille Falle: ohne Stille antwortet die VAD nie
 
 Asterisk liefert **keine Stille-Frames**, wenn der andere Schenkel nichts sendet. Wer nur
@@ -89,6 +126,11 @@ zeichnet die Antwort auf (`Record`/`MixMonitor` schlaegt bei `.slin16` manchmal 
 zuverlaessiger: die Bridge schreibt das ausgehende PCM selbst per `--dump` mit).
 Erwartete Beweiskette im Log: `Anrufer: <Frage als Transkript>` → `Agent: <Antwort>` →
 Dumpdatei mit passender Laenge.
+
+Fuer den RTP-Weg analog: `channel originate UnicastRTP/127.0.0.1:9094/c(slin16)p(118)
+application Dial Local/s@<ctx>` — der Kontext muss etwas abspielen, sonst kommt kein RTP.
+Byte-Order-Kontrolle: Nutzlast als big endian interpretieren und die 1-kHz-/Sprachprobe
+mit Batch-STT verifizieren (little endian ⇒ Rauschen).
 
 ## Kosten (Okt 2026, nachgeprueft)
 
