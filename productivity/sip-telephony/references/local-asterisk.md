@@ -54,5 +54,14 @@ Gotchas that cost a round of debugging:
 - Test calls headless with `asterisk -rx "channel originate PJSIP/<dest>@<endpoint> extension s@<context>"`; the dialplan plays the announcement. Read the outcome from the log line `Response is <code>` instead of parsing the CLI output.
 - **Turn on CDRs before claiming a call succeeded**: uncomment `enable=yes` under `[general]` in `/etc/asterisk/cdr.conf`, `module reload cdr_csv.so`, then read `/var/log/asterisk/cdr-csv/Master.csv`. A line with `ANSWERED` and `billsec > 0` is the difference between "the provider accepted the INVITE" and "the callee actually heard the announcement" — a provider can answer, ring, and still drop the media.
 - `Playback(custom/<name>)` resolves against the sounds directory (`/usr/share/asterisk/sounds/`); install the TTS file there as 8 kHz mono `pcm_s16le` WAV owned by `asterisk`: `install -o asterisk -g asterisk -m 644 ansage.wav /usr/share/asterisk/sounds/custom/`. A whole POC call is then: `ffmpeg -i tts.mp3 -ar 8000 -ac 1 -c:a pcm_s16le ansage.wav` → originate → CDR says `ANSWERED`.
+- **`pbx_spool` kann den Anruf ein zweites Mal waehlen — trotz `MaxRetries: 0`.** Beobachtet
+  im echten Telefonat: Kanal stand, Gespraech lief, und 60 s nach dem ersten Versuch kam ein
+  **zweiter Anruf** auf demselben Handy an (`StartRetry` im Log, zweite CDR-Zeile mit eigener
+  `uid`). Vorausgegangen war unmittelbar nach `Filename: <file>` die Warnung
+  `Unable to set utime on <file>: Operation not permitted` — das Modul markiert einen Versuch
+  ueber die Dateizeit; gelingt das nicht, gilt die Datei beim naechsten Scan (nach `RetryTime`)
+  wieder als offen und wird erneut gewaehlt. Fix (beides zusammen): die Call-Datei aus dem
+  Spool **entfernen, sobald der eigene Endpoint in `core show channels` auftaucht**, und
+  `RetryTime: 3600` setzen. Gegenprobe: kein `StartRetry` fuer diese Datei im `full.log`.
 - A mature stack also tells the *provider's* verdict apart from your own signalling: `407` before/after `403` means auth is fine and the **account policy** refuses (`403 Forbidden`, `Content-Length: 0`, no reason phrase). Expect 403 when the SIP user has no outbound right and stop probing dial formats — see the next pitfall.
 
