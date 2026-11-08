@@ -83,6 +83,10 @@ See `references/providers-and-platforms.md` for the capability matrix with sourc
 
 Generate prompts/answers with `text_to_speech`, transcribe recordings with the configured STT provider, expose the call as a small CLI or skill script (`call <number> <text>`), and confirm with the user before dialing. Emergency numbers never.
 
+### 6a. Target book instead of derived numbers
+
+Keep the verified destinations in one `0600` file (`$HERMES_HOME/sip-targets.env`, one `name=+E.164` per line: `handy`, `backsim`, `fonial`) and let the call script accept a **name** (`voice_call.py --target handy`) beside the raw `--to`. Never re-derive a destination from an archived call file: that is how a typo survives every later test and gets mistaken for a provider fault. Build entries from a source of truth the user can read (their call log) or from a file that belonged to a *confirmed* successful call, keep the provenance as a comment, and when numbers come back masked in tool output assemble them from parts in code and verify by length plus last four digits. Derive caller ID from the credential file as well (`SIP_NUMBER` → E.164) rather than keeping it as a literal — a literal in a script can be silently overwritten by a masked read.
+
 ### 7. Local Asterisk stack, call files and the two-way loop
 
 Full depth — apt install, pjlib resolver trap, NAT shape, `403` from a pinned IP, call-file delivery, dialplan/Playback/Record, CDR proof, and the store-and-forward two-call conversation loop with ElevenLabs Scribe — is in `references/local-asterisk.md`. Always place calls with a **call file** (`/var/spool/asterisk/outgoing/`), never `channel originate`: only the call file carries a CallerID, otherwise the INVITE goes out as `From: "Anonymous"`.
