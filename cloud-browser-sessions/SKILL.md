@@ -49,7 +49,7 @@ curl -s -X POST https://api.browser-use.com/api/v3/browsers \
 
 ### 2. Hand the live view to the human
 
-Send the `liveUrl` with the exact expiry time converted to the user's timezone (session start + `timeout`), and say what to do there and what to report back. Then **wait** — do not poll or re-navigate while they work; navigating moves their page.
+Send the `liveUrl` with the exact expiry time converted to the user's timezone (session start + `timeout`) — convert via the IANA zone (`TZ=Europe/Berlin date`), never with a hard-coded offset: Germany is UTC+1 in winter (CET) and UTC+2 in summer (CEST), and a fixed `+2` is wrong for half the year, and say what to do there and what to report back. Then **wait** — do not poll or re-navigate while they work; navigating moves their page.
 
 The live view **is** interactive in practice (verified: a user typed e-mail, password and an e-mail PIN into it and reached the portal) — so the human does the whole login there and the agent never needs a credential fill. If a live view ever turns out to be watch-only, fall back to the persistent profile (`profileId`) plus a credential-vault fill, or ask the user to log in on their own machine and export the cookie — do not ask for the password in chat.
 
