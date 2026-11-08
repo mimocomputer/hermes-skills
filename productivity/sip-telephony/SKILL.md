@@ -39,7 +39,7 @@ Ask (or read from the provider portal):
 
 - **Cloud PBX number or trunk?** A PBX number is routed by the provider's own dial plan (`Ziele`, `Rufnummern`, forwardings); a trunk is addressed directly from a PBX the user owns. The inbound story differs completely.
 - **A separate SIP user for the agent?** Require one. Most providers allow only one REGISTER per SIP user, so sharing the user's softphone credentials makes the two registrations evict each other. Creating a second SIP user / `IP-Endgerät` also avoids disturbing their phone.
-- **Inbound routing options:** can the provider forward a call to an arbitrary SIP URI (`Weiterleitung auf SIP-URI`), or point at a static IP? If neither, inbound to a hosted platform is impossible and the local-stack route is the only one.
+- **Inbound routing options:** can the provider forward a call to an arbitrary SIP URI (`Weiterleitung auf SIP-URI`), or point at a static IP? If neither, a hosted platform cannot be reached *directly* — but the route is still open through an intermediate you control (a PBX registered with the provider that bridges onward over TLS/SRTP/Opus); the recipe is in `references/realtime-voice.md`. Only call a route impossible once no hop in the chain can supply the missing capability.
 - **Terms:** some providers gate trunk/voice-AI features behind a paid tier. Check the portal, do not assume.
 
 ### 2. Get the credentials in without the chat
@@ -83,13 +83,13 @@ See `references/providers-and-platforms.md` for the capability matrix with sourc
 
 Generate prompts/answers with `text_to_speech`, transcribe recordings with the configured STT provider, expose the call as a small CLI or skill script (`call <number> <text>`), and confirm with the user before dialing. Emergency numbers never.
 
-### 6b. Realtime voice: measure the transport before designing
-
-Before promising a hosted realtime platform or building a media bridge, read `references/realtime-voice.md`: it records the port/TLS measurement that rules hosted BYO-trunk platforms in or out, which media modules the Debian package actually ships (`res_speech_aeap` yes, `res_audio_socket`/`res_external_media` no), and the measured ElevenLabs Scribe v2 Realtime behaviour on native telephone audio (ulaw_8000, sub-second partials) together with the `scripts/stt_realtime_test.py` harness.
-
 ### 6a. Target book instead of derived numbers
 
 Keep the verified destinations in one `0600` file (`$HERMES_HOME/sip-targets.env`, one `name=+E.164` per line: `handy`, `backsim`, `fonial`) and let the call script accept a **name** (`voice_call.py --target handy`) beside the raw `--to`. Never re-derive a destination from an archived call file: that is how a typo survives every later test and gets mistaken for a provider fault. Build entries from a source of truth the user can read (their call log) or from a file that belonged to a *confirmed* successful call, keep the provenance as a comment, and when numbers come back masked in tool output assemble them from parts in code and verify by length plus last four digits. Derive caller ID from the credential file as well (`SIP_NUMBER` → E.164) rather than keeping it as a literal — a literal in a script can be silently overwritten by a masked read.
+
+### 6b. Realtime voice: decide per hop, then measure
+
+Before promising a hosted realtime platform or building a media bridge, read `references/realtime-voice.md`: the provider-side port/TLS measurement, **the recipe for making Asterisk itself the TLS/SRTP bridge when the provider leg cannot do TLS**, the media modules the Debian package actually ships (`res_speech_aeap`, `res_srtp`, `codec_opus_open_source` yes; `res_audio_socket`/`res_external_media` no), the measured ElevenLabs Scribe v2 Realtime behaviour on native telephone audio (ulaw_8000, sub-second partials) with the `scripts/stt_realtime_test.py` harness, and the hosted-platform call shapes with their firewall consequences.
 
 ### 7. Local Asterisk stack, call files and the two-way loop
 
@@ -127,6 +127,7 @@ Outcome of that audit: every outbound-relevant switch was correct (number assign
 - An empty device list is a finding, not a failure: report "no IP-Endgerät / SIP user exists in this account yet" and stop, rather than producing a placeholder credential file.
 - Re-check the portal session instead of trusting an earlier success: if the tab is `about:blank` or a fresh `chrome://newtab` at the start of a turn, the cookies are gone and the read will silently return the login page. Batch the whole portal walk (fill → vault password → submit → vault code → submit → read target page) into consecutive calls, because a session loss costs a full e-mail-PIN round trip.
 - Provider dashboards can contradict their own list pages (a tile counting "1 Rufnummern aktiv" above an empty `Rufnummern (0)` table). Trust the list/detail pages you would extract from, and say which one you read.
+- **One leg's measurement does not close a route.** A missing capability on the provider side (no TLS, no SRTP, no Opus) says nothing about a hosted platform that needs that capability on the *far* side — an intermediate you control can supply it: a PBX that speaks plain UDP/G.711 to the provider and TLS/SRTP/Opus upstream. Before telling the user a route is impossible, name which hop has to speak the protocol and check whether the hop in between can.
 - Don't report a hosted path as "the recommended approach" until the INVITE test has actually succeeded; label measured facts and vendor documentation separately.
 - This user expects provenance: state which claim was measured here, which came from vendor docs (link it), and disclose search/fetch fallbacks when the configured backend fails mid-research.
 
