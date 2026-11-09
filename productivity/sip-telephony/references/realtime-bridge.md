@@ -35,10 +35,20 @@ Protokoll: 1 Byte Typ + 2 Byte Laenge (big endian) + Nutzlast; `0x01` UUID, `0x1
 `0x03` DTMF, `0x00` Ende. **Achtung:** der Typ bleibt auch bei 16 kHz `0x10` — die Rate
 ergibt sich ausschliesslich aus dem `c(...)`-Argument, nicht aus dem Typ-Byte.
 
-### Richtungs-Asymmetrie der installierten Version (die Quelle taeuscht)
+### Richtungs-Asymmetrie des Paket-Moduls — geloest durch Eigenbau (Nov 2026)
+
+**Loesung zuerst:** das Distro-Paket 22.5.2 (Build Aug 2025) ist aelter als der
+Upstream-Commit `cb5b22db` (2025-10-10), der die breitbandigen Typcodes einbrachte. Baut man
+`res/res_audiosocket.c` + `channels/chan_audiosocket.c` aus dem 22-Zweig gegen `asterisk-dev`
+(Rezept in `references/audio-quality-and-codecs.md`), spricht der Kanal `0x12` in **beide**
+Richtungen: 640-Byte-Frames je 20 ms (= 32 kB/s), G.722 172/172 Pakete ohne Verlust, vom
+Nutzer als deutlich besser bestaetigt. Nach `apt upgrade` pruefen, ob das Paket die eigenen
+Module ueberschrieben hat.
+
+Das Folgende beschreibt weiterhin gueltig den Zustand *mit dem Paket-Modul*:
 
 Upstream Asterisk 22 *kennt* breitbandige Typcodes (`0x12` = 16 kHz, `0x13` = 24 kHz) —
-**das installierte Modul tut das nicht**. Gemessen am Debian/Armbian-Paket 22.5.2:
+**das Paket-Modul tut das nicht**. Gemessen am Debian/Armbian-Paket 22.5.2:
 `strings res_audiosocket.so` zeigt keine der `slin16`-Konstanten, und ein Frame mit `0x12`
 wird verworfen (*"Received AudioSocket message other than hangup or audio"*). Ergebnis:
 
@@ -54,9 +64,20 @@ pruefenden Typcode senden, auf der Asterisk-Seite aufnehmen, im Aufnahme-PCM die
 ueber Nulldurchgaenge messen. 1000 Hz = Rate stimmt, 500 Hz = halbe Rate. Messung hier:
 1 kHz-Nutzlast als 8 kHz + Typ `0x10` → **1000 Hz / 7,0 s Aufnahme** (richtig).
 
-## Transport B: UnicastRTP — 16 kHz in BEIDE Richtungen (bevorzugt)
+## Transport B: UnicastRTP — als Breitbandweg VERWORFEN (nur noch Wire-Format-Referenz)
 
-Umgeht die 8-kHz-Grenze des installierten res_audiosocket, ohne ein Modul zu bauen:
+**Nicht verwenden.** Die Leserichtung ist in diesem Build defekt: mit einem gebrueckten
+AudioSocket-Peer als Messinstrument kamen von 381 von Asterisk als empfangen geloggten
+RTP-Paketen **0 Byte** in der Bruecke an (kein strict-RTP-Verwerfen, simple_bridge,
+Translation vorhanden). Nur die Schreibrichtung funktioniert — deshalb bestehen lokale
+Vorlesetests und echte Anrufe bleiben stumm. Messdetails:
+`references/audio-quality-and-codecs.md`.
+
+Der Abschnitt bleibt als Wire-Format-Nachschlagewerk stehen (Payload big endian, Pad-Bit
+ignorieren, Taktrate ueber `comfort_silence`), falls ein spaeterer Asterisk-Build das
+repariert.
+
+Damals gedacht als Umweg um die 8-kHz-Grenze des Paket-Moduls, ohne selbst zu bauen:
 
 ```
 [ai]

@@ -37,7 +37,8 @@ priv_key_file=/etc/asterisk/keys/<name>.key
 
 ## Media path inside Asterisk on Debian/Ubuntu
 
-- The `asterisk-modules` package does **not** contain `res_audio_socket.so` (AudioSocket) or `res_external_media.so` (ARI ExternalMedia). `module show like audio_socket` returning "0 modules" means absent, not unloaded — check the module directory reported by `core show settings` (`/usr/lib/<arch>-linux-gnu/asterisk/modules`).
+- **Name trap, verified:** the module is `res_audiosocket.so` (no underscore between *audio* and *socket*), so `module show like audio_socket` reports "0 modules" on a box that *has* it — check `module show like audiosocket`. The `asterisk-modules` package does ship AudioSocket (`dpkg -S` → `res_audiosocket.so`, `chan_audiosocket.so`, `app_audiosocket.so`), but the packaged build is narrowband-only (kind `0x10` = 8 kHz).
+- `res_external_media.so` (ARI ExternalMedia) is genuinely **not** packaged (`dpkg -L asterisk | grep res_external_media` → nothing), so that route needs a self-build.
 - It **does** ship `res_speech_aeap.so` + `res_speech.so` + `app_speech_utils.so` (AEAP — Asterisk External Application Protocol — the in-package way to stream call audio to an external process over a WebSocket), plus `res_srtp.so` and `codec_opus_open_source.so` with `res_format_attr_opus.so` for transcoding to a platform that insists on Opus.
 - Alternatives: compile the missing modules from the Asterisk source tree, or stay with the store-and-forward loop (see `references/local-asterisk.md`).
 

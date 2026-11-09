@@ -195,6 +195,7 @@ A skill exists to make the agent's process more predictable — the agent reliab
 8. **Skipping the docs generator or pushing its unrelated drift.** Both directions are wrong: no regen = orphan skill with no docs page; blind regen = a ballooned diff full of other skills' drift.
 9. **Expecting the current session to see the new skill.** The loader is initialized at session start.
 10. **Letting skills accumulate sediment.** When adding a rule, remove the old wording it replaces.
+11. **Omitting `file_path` on a `skill_manage(action='patch')` op.** It defaults to SKILL.md, so editing a `references/*.md` file without an explicit `file_path` on *every* op fails — and because the batch is atomic and the error previews SKILL.md sections, it looks like the anchor text was wrong rather than the target file.
 
 ## Verification Checklist
 
