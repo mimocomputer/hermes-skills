@@ -31,6 +31,16 @@ Class of task: the user already owns a phone number reachable over SIP (a cloud 
 
 So the work is: establish the SIP facts by measurement, then either run a local SIP stack or hand the trunk to a hosted platform.
 
+## First: is a stack already running here?
+
+Before designing anything, check for a live setup — on this host one exists:
+
+- `systemctl --user status hermes-realtime-bridge` (media bridge, user service),
+  `sudo asterisk -rx "pjsip show registrations"` (trunk registration),
+  `sudo asterisk -rx "core show channels concise"` (busy/idle).
+- **Operating manual for that running stack: `references/live-stack-operations.md`** — inventory and paths, how to start/stop/verify the bridge, place and observe a test call, read the quality proof, change persona/voice (`rt-bridge.env` + restart), regenerate the dialplan, and the traps that already cost time.
+- Persona/voice changes and test calls are one-liners there. Do not rebuild a working stack; verify it first.
+
 ## Procedure
 
 ### 1. Establish the shape before touching anything
@@ -75,7 +85,7 @@ Every hosted platform below **never sends a SIP REGISTER** — it dials the prov
 
 See `references/providers-and-platforms.md` for the capability matrix with sources. Short version:
 
-- **Local Asterisk or FreeSWITCH** (register as a device/`IP-Endgerät`): always works when the provider supports registration, no per-minute platform fee, full audio control. Bridge the agent with `ARI` + ExternalMedia, the AudioSocket channel, or the WebSocket media channel; a minimal first milestone is register → answer/place → play a TTS file → record → transcribe. Open-source scaffolding exists in the AgentVoiceResponse project (Asterisk + AudioSocket + ASR/LLM/TTS docker-compose).
+- **Local Asterisk or FreeSWITCH** (register as a device/`IP-Endgerät`): always works when the provider supports registration, no per-minute platform fee, full audio control. Bridge the agent with `ARI` + ExternalMedia, the AudioSocket channel (the **channel driver** `Dial(AudioSocket/host:port/<uuid>/c(slin16))` gives 16 kHz; on a distro package older than upstream commit `cb5b22db` the packaged module is narrowband-only and has to be rebuilt from source — recipe in `references/audio-quality-and-codecs.md`), or the WebSocket media channel; a minimal first milestone is register → answer/place → play a TTS file → record → transcribe. Open-source scaffolding exists in the AgentVoiceResponse project (Asterisk + AudioSocket + ASR/LLM/TTS docker-compose).
 - **Hosted BYO-SIP** (Vapi, LiveKit, OpenAI Realtime/GPT-Live SIP): faster to a conversational agent, billed per minute, and dependent on step 4. Each has its own inbound twist (trunk vs SIP-URI forward vs numeric-IP gateway).
 - **Minimal POC without a PBX:** `pjsua`/`baresip` registers and can play a generated file or record a call — good enough to prove registration, credentials and caller ID before building.
 
@@ -89,11 +99,11 @@ Keep the verified destinations in one `0600` file (`$HERMES_HOME/sip-targets.env
 
 ### 6b. Realtime voice: decide per hop, then measure
 
-Before promising a hosted realtime platform or building a media bridge, read `references/realtime-voice.md`: the provider-side port/TLS measurement, **the recipe for making Asterisk itself the TLS/SRTP bridge when the provider leg cannot do TLS**, the media modules the Debian package actually ships (`res_speech_aeap`, `res_srtp`, `codec_opus_open_source` yes; `res_audio_socket`/`res_external_media` no), the measured ElevenLabs Scribe v2 Realtime behaviour on native telephone audio (ulaw_8000, sub-second partials) with the `scripts/stt_realtime_test.py` harness, and the hosted-platform call shapes with their firewall consequences. When the actual call is to be answered by a language model in real time, read `references/realtime-bridge.md`: OpenAI Realtime over **WebSocket** (works with a plain API key, outbound only, no SIP connector and no firewall change) while the Live API's SIP transport may be closed (`400 Only the webrtc transport is supported`), the AudioSocket **app** being hard-wired to 8 kHz versus the **channel driver** `c(slin16)` giving a measured 16 kHz, the silence feeder without which the server VAD never ends the turn, and the answer pacing.
+Before promising a hosted realtime platform or building a media bridge, read `references/realtime-voice.md`: the provider-side port/TLS measurement, **the recipe for making Asterisk itself the TLS/SRTP bridge when the provider leg cannot do TLS**, the media modules the Debian package actually ships (verified: `res_speech_aeap`, `res_srtp`, `codec_opus_open_source` yes; AudioSocket yes as `res_audiosocket.so`/`chan_audiosocket.so` — note the name has no underscore, so `module show like audio_socket` misleadingly reports nothing — but narrowband-only until the wideband modules are built; ARI ExternalMedia `res_external_media.so` genuinely absent), the measured ElevenLabs Scribe v2 Realtime behaviour on native telephone audio (ulaw_8000, sub-second partials) with the `scripts/stt_realtime_test.py` harness, and the hosted-platform call shapes with their firewall consequences. When the actual call is to be answered by a language model in real time, read `references/realtime-bridge.md`: OpenAI Realtime over **WebSocket** (works with a plain API key, outbound only, no SIP connector and no firewall change) while the Live API's SIP transport may be closed (`400 Only the webrtc transport is supported`), the AudioSocket **app** being hard-wired to 8 kHz versus the **channel driver** `c(slin16)` giving a measured 16 kHz, the silence feeder without which the server VAD never ends the turn, and the answer pacing.
 
 ### 7. Local Asterisk stack, call files and the two-way loop
 
-Full depth — apt install, pjlib resolver trap, NAT shape, `403` from a pinned IP, call-file delivery, dialplan/Playback/Record, CDR proof, and the store-and-forward two-call conversation loop with ElevenLabs Scribe — is in `references/local-asterisk.md`. **Audio quality is its own topic**: `references/audio-quality-and-codecs.md` records which codec the provider really carries (G.722 yes, Opus `488`), why prompt files must be installed as raw `.sln16`/`.ulaw`, how to stand up the TLS transport (`priv_key_file`, readable by the asterisk user) and what the cloud security list still needs. Always place calls with a **call file** (`/var/spool/asterisk/outgoing/`), never `channel originate`: only the call file carries a CallerID, otherwise the INVITE goes out as `From: "Anonymous"`.
+Full depth — apt install, pjlib resolver trap, NAT shape, `403` from a pinned IP, call-file delivery, dialplan/Playback/Record, CDR proof, and the store-and-forward two-call conversation loop with ElevenLabs Scribe — is in `references/local-asterisk.md`. **Audio quality is its own topic**: `references/audio-quality-and-codecs.md` records which codec the provider really carries (G.722 yes, Opus `488`), why prompt files must be installed as raw `.sln16`/`.ulaw`, how to stand up the TLS transport (`priv_key_file`, readable by the asterisk user) and what the cloud security list still needs. Placing calls: a **call file** (`/var/spool/asterisk/outgoing/`) is the documented route and the only one that takes an explicit `CallerID:` line, but on this build it is unreliable — `voice_call.py` prints `Warnung: Call-File nicht lesbar abgelegt`, can leave the spool empty with no CDR line, and still dial successfully on other runs, so never judge the attempt by its exit status. For tests, `sudo asterisk -rx "channel originate PJSIP/<E.164>@fo-endpoint extension s@ai"` is reliable and does present the number (`full.log`: `From: <sip:4991147751248@sip.plusnet.de>`, CDR CallerID `+499…1248`; the wire form drops the leading `+`). Confirm every attempt in `full.log`/CDR/`pjsip show channelstats`, not in the script output.
 
 ### 7a. `403` vs `480` on outgoing calls — separate the layers before touching config
 
