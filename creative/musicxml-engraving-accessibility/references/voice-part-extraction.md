@@ -10,7 +10,7 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
    one delivery showed five different layouts: separate SATB parts; 2-staff `Chor` (SA/TB);
    4-staff `Chor` SATB; a 1-staff `Tenor und Bass`; and one score where the men's line moves
    between staves (unison strophe on the upper staff, second voice later, own staff at the end).
-   **Never assume "staff 2 = TB" or "voice 1 = Tenor".**
+   **Never assume "staff 2 = TB" or "voice 1 = Tenor".** The census is cheap: per part and measure, count pitched notes per `<voice>` and per `<chord/>`, and print run-length ranges rather than one line per bar. When the source is a Sibelius/MusicXML export and the request is a structural voice split, this census plus the part list is enough to build the split — do not burn calls reading print crops first. The print is needed only to settle whether a chord is one stem (one voice sounding an interval) or two stems (a real second singer); the split itself is a structural transformation of the XML.
 2. **Never identify a voice by index alone — check the clef and the range.** A tenor staff can be
    treble-8, plain treble, or bass clef depending on the edition; keep the source clef
    (including `clef-octave-change`), do not "normalise" it.
