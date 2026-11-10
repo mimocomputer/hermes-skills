@@ -21,6 +21,15 @@ The task is *not* a file filter: MuseScore voices are engraving voices, not sing
    Measure length = max end over *all* voices of the measure, and `implicit="yes"` pickups
    stay shorter than the nominal meter.
 
+## Rebuilding a measure from a `<chord/>` note
+
+`<chord/>` notes are engraved intervals, not extra voices, so a request to "split everything" turns each into its own line — and a naive copy breaks the bar clock in two ways:
+
+* **Onset anchor.** A chord note sounds together with the note it is attached to. Track `last_onset` (the onset of the last non-chord note, updated after `backup`/`forward`) and place chord notes there; the plain cursor has already advanced by the anchor note's duration, so using it moves the interval tone to the end of the measure.
+* **Type and dot are recomputed, not copied.** `<type>`/`<dot>` must describe the note's actual `<duration>`; MuseScore computes measure length from type/dot. A chord note carrying the anchor's `type=quarter`+`<dot/>` but a quarter's duration is read as 6/16 and the whole bar becomes 9/8 (`<Measure len="9/8">` in MuseScore's export). Derive type/dot from duration for every emitted note and add the missing `<voice>`/`<staff>` to chord-derived notes.
+
+Gate the split on both checks — per-measure duration sum against the meter in the generated file *and* in MuseScore's re-export, plus a type-vs-duration consistency scan — because MuseScore accepts a clock-wrong bar without complaint and only the re-export exposes it.
+
 ## Three traps that make a naive split wrong
 
 * **Unison inheritance.** Where a voice is empty but a sibling voice on the *same staff*
